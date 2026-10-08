@@ -5,6 +5,7 @@ Todo lo que sale de aquí se guarda con es_simulado=True para que la interfaz lo
 - Clima diario: solo se usa si Open-Meteo no responde. Climatología bimodal de Pasto
   (lluvias mar-may y oct-dic, verano jul-ago), gradiente térmico de -0.55 °C/100 m y
   anomalías ENSO aproximadas (La Niña 2020-2022 más húmedo; El Niño 2023-2024 más seco y cálido).
+- Búsquedas (Trends) y ventas de farmacias: señales que se adelantan ~1 semana a los casos.
 - Casos semanales: modelo Poisson-Gamma (binomial negativa) cuya media depende de la estacionalidad,
   del clima con rezagos, de la ceniza y del SO2. Así el modelo de la Fase 2 tiene señales reales
   que aprender, y la relación clima→casos es explicable en la sustentación.
@@ -15,7 +16,7 @@ from datetime import date, timedelta
 
 import numpy as np
 
-from app.core.epi import desplazar, iterar_semanas, semana_de
+from app.core.epi import desplazar, inicio_semana, iterar_semanas, semana_de
 
 # Precipitación mensual típica de Pasto (mm/mes)
 LLUVIA_MENSUAL = {1: 70, 2: 65, 3: 85, 4: 100, 5: 85, 6: 50, 7: 35, 8: 30, 9: 45, 10: 105, 11: 115, 12: 90}
@@ -127,3 +128,87 @@ def generar_casos(
             casos = int(rng.poisson(rng.gamma(k, lam / k)))  # binomial negativa
             salida[codigo].append((a, s, casos))
     return salida
+
+
+# ── Fase 2: señales tempranas simuladas ───────────────────────────────────────
+# Hipótesis que se simula (y que el modelo debe descubrir): la gente busca síntomas y compra
+# medicamentos ANTES de que el caso llegue a SIVIGILA (consulta + notificación tardan ~1 semana).
+# Por eso cada señal mezcla los casos de la semana t con los de la semana t+1.
+
+def _serie_adelantada(serie: dict[tuple[int, int], int], a: int, s: int, peso_futuro: float = 0.45) -> float:
+    actual = serie.get((a, s), 0)
+    futuro = serie.get(desplazar(a, s, 1), actual)
+    return (1 - peso_futuro) * actual + peso_futuro * futuro
+
+
+def generar_tendencias(
+    *, casos: dict[str, dict[tuple[int, int], int]], terminos: dict[str, list[str]],
+    desde: tuple[int, int], hasta: tuple[int, int], semilla: int,
+) -> list[dict]:
+    """Índice semanal 0-100 por término para todo el departamento (como Google Trends en CO-NAR).
+
+    `casos`: {codigo_enfermedad: {(anio, semana): casos de los 6 municipios}}
+    `terminos`: {codigo_enfermedad: [términos de búsqueda]}
+    """
+    rng = np.random.default_rng(semilla)
+    medias = {cod: (np.mean(list(s.values())) or 1.0) for cod, s in casos.items() if s}
+    por_termino: dict[str, list[str]] = defaultdict(list)
+    for cod, ts in terminos.items():
+        for t in ts:
+            por_termino[t].append(cod)
+
+    filas = []
+    for termino, enfermedades in por_termino.items():
+        crudo = {}
+        ruido = 0.0
+        for a, s in iterar_semanas(desde, hasta):
+            señal = sum(_serie_adelantada(casos[c], a, s) / medias[c] for c in enfermedades if c in casos and c in medias)
+            ruido = 0.6 * ruido + rng.normal(0, 0.10)  # el interés de búsqueda tiene inercia
+            crudo[(a, s)] = max(0.0, (0.35 + señal / max(len(enfermedades), 1)) * math.exp(ruido))
+        tope = max(crudo.values(), default=1.0) or 1.0
+        for (a, s), v in crudo.items():
+            filas.append({"termino": termino, "region": "CO-NAR", "anio": a, "semana_epi": s,
+                          "fecha_semana": inicio_semana(a, s), "indice": round(100 * v / tope, 1),
+                          "fuente": "simulado", "es_simulado": True})
+    return filas
+
+
+UNIDADES_BASE = {"ANTIGRIPALES": 120, "ANTIPIRETICOS": 150, "SALES_REHIDRATACION": 40,
+                 "INHALADORES": 25, "TAPABOCAS": 70, "REPELENTES": 12}
+
+
+def generar_reportes_farmacia(
+    *, farmacias: list[dict], casos: dict[int, dict[str, dict[tuple[int, int], int]]],
+    categorias: dict[str, list[str]], desde: tuple[int, int], hasta: tuple[int, int], semilla: int,
+) -> list[dict]:
+    """Unidades vendidas por farmacia, semana y categoría.
+
+    `farmacias`: [{"id", "municipio_id", "altitud_m"}]
+    `casos`: {municipio_id: {codigo_enfermedad: {(anio, semana): casos}}}
+    `categorias`: {codigo_enfermedad: [categorías cuyas ventas suben con esa enfermedad]}
+    """
+    rng = np.random.default_rng(semilla)
+    por_categoria: dict[str, list[str]] = defaultdict(list)
+    for cod, cats in categorias.items():
+        for c in cats:
+            por_categoria[c].append(cod)
+
+    filas = []
+    for f in farmacias:
+        escala = float(rng.lognormal(0, 0.35))  # cada farmacia tiene su propio volumen de ventas
+        calido = (f.get("altitud_m") or 2500) < 2000
+        series = casos.get(f["municipio_id"], {})
+        medias = {c: max(np.mean(list(s.values())), 0.3) for c, s in series.items() if s}
+        for a, s in iterar_semanas(desde, hasta):
+            if rng.random() < 0.04:
+                continue  # semanas sin reporte (realismo: no todas las farmacias reportan siempre)
+            for cat, base in UNIDADES_BASE.items():
+                base = base * escala * (3.0 if cat == "REPELENTES" and calido else 1.0)
+                exceso = sum(0.55 * (_serie_adelantada(series[c], a, s) / medias[c] - 1)
+                             for c in por_categoria.get(cat, []) if c in series and c in medias)
+                if cat == "TAPABOCAS" and a == 2020 and s >= 12:
+                    base *= 4.0  # pandemia de COVID-19
+                media = max(base * (1 + exceso), 0.5)
+                filas.append({"farmacia_id": f["id"], "anio": a, "semana_epi": s, "categoria": cat,
+                              "unidades": int(rng.poisson(media)), "es_simulado": True})
+    return filas
