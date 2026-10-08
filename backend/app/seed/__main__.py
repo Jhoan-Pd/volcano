@@ -26,7 +26,9 @@ from app.models import (
 )
 from app.models.enums import RolNombre
 from app.seed import catalogo
-from app.seed.generador import clima_semanal, generar_casos, simular_clima
+from app.seed.generador import (
+    clima_semanal, generar_casos, generar_reportes_farmacia, generar_tendencias, simular_clima,
+)
 
 log = logging.getLogger("seed")
 DATA = Path(__file__).parent / "data"
@@ -205,6 +207,55 @@ def seed_casos(db, clima: dict[int, list[dict]], so2, ceniza) -> None:
     log.info("Casos semanales generados: %d", total)
 
 
+def _casos_por_municipio(db) -> dict[int, dict[str, dict[tuple[int, int], int]]]:
+    enf = {e.id: e.codigo for e in db.scalars(select(Enfermedad))}
+    salida: dict[int, dict[str, dict[tuple[int, int], int]]] = {}
+    for mid, eid, a, s, c in db.execute(select(CasoOficial.municipio_id, CasoOficial.enfermedad_id, CasoOficial.anio,
+                                               CasoOficial.semana_epi, CasoOficial.casos)):
+        salida.setdefault(mid, {}).setdefault(enf[eid], {})[(a, s)] = c
+    return salida
+
+
+def _lista(texto: str | None) -> list[str]:
+    return [t.strip() for t in (texto or "").split(",") if t.strip()]
+
+
+def seed_tendencias(db) -> None:
+    """Búsquedas simuladas (Google Trends CO-NAR) coherentes con los casos ya cargados."""
+    if _hay(db, TendenciaBusqueda) or not _hay(db, CasoOficial):
+        return
+    por_mun = _casos_por_municipio(db)
+    departamento: dict[str, dict[tuple[int, int], int]] = {}
+    for series in por_mun.values():
+        for cod, serie in series.items():
+            destino = departamento.setdefault(cod, {})
+            for k, v in serie.items():
+                destino[k] = destino.get(k, 0) + v
+    terminos = {e.codigo: [t.lower() for t in _lista(e.terminos_busqueda)] for e in db.scalars(select(Enfermedad))}
+    filas = generar_tendencias(casos=departamento, terminos=terminos, desde=(settings.SEED_ANIO_INICIO, 1),
+                               hasta=ultima_semana_completa(), semilla=SEMILLA + 7)
+    db.execute(insert(TendenciaBusqueda), filas)
+    db.commit()
+    log.info("Búsquedas simuladas: %d semanas-término", len(filas))
+
+
+def seed_reportes_farmacia(db) -> None:
+    """Ventas semanales simuladas de las farmacias demo, coherentes con los casos de su municipio."""
+    if _hay(db, ReporteFarmacia) or not _hay(db, CasoOficial):
+        return
+    altitudes = {m.id: m.altitud_m for m in db.scalars(select(Municipio))}
+    farmacias = [{"id": f.id, "municipio_id": f.municipio_id, "altitud_m": altitudes.get(f.municipio_id)}
+                 for f in db.scalars(select(Farmacia).order_by(Farmacia.id))]
+    categorias = {e.codigo: _lista(e.categorias_farmacia) for e in db.scalars(select(Enfermedad))}
+    filas = generar_reportes_farmacia(farmacias=farmacias, casos=_casos_por_municipio(db), categorias=categorias,
+                                      desde=(settings.SEED_ANIO_INICIO, 1), hasta=ultima_semana_completa(),
+                                      semilla=SEMILLA + 11)
+    for i in range(0, len(filas), 5000):
+        db.execute(insert(ReporteFarmacia), filas[i:i + 5000])
+    db.commit()
+    log.info("Reportes de farmacia simulados: %d filas", len(filas))
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     p = argparse.ArgumentParser(description="Carga datos iniciales")
@@ -224,6 +275,8 @@ def main() -> None:
         so2, ceniza = seed_volcan(db)
         if faltan_casos:
             seed_casos(db, clima, so2, ceniza)
+        seed_tendencias(db)
+        seed_reportes_farmacia(db)
     log.info("Seed completo en %.1fs", time.time() - t0)
 
 
