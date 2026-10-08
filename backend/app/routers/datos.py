@@ -4,7 +4,8 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import solo_admin
 from app.db.session import get_db
-from app.schemas.datos import ResultadoTendencias, SerieTendencia
+from app.schemas.datos import ResultadoSivigila, ResultadoTendencias, SerieTendencia
+from app.services.sivigila_service import SivigilaService
 from app.services.tendencia_service import TendenciaService
 
 router = APIRouter(prefix="/datos", tags=["Fuentes de datos"])
@@ -21,3 +22,11 @@ def sincronizar_tendencias(forzar: bool = Query(False, description="Ignorar la c
 def tendencias(termino: str = Query(..., min_length=2, max_length=60), semanas: int = Query(104, ge=4, le=520),
                db: Session = Depends(get_db)):
     return TendenciaService(db).serie(termino, semanas)
+
+
+@router.post("/sincronizar/sivigila", response_model=ResultadoSivigila, dependencies=[Depends(solo_admin)],
+             summary="Descargar casos oficiales de SIVIGILA (datos.gov.co) — solo ADMIN")
+def sincronizar_sivigila(desde_anio: int = Query(2020, ge=2007, le=2100), db: Session = Depends(get_db)):
+    """Usa los códigos INS configurados en cada enfermedad (`codigos_sivigila`).
+    Los datos oficiales reemplazan a los simulados de las mismas semanas."""
+    return SivigilaService(db).sincronizar(desde_anio)
