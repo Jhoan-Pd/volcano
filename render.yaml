@@ -1,0 +1,34 @@
+# Blueprint de Render (Infrastructure as Code). Render → New → Blueprint → elige este repo.
+# Las variables marcadas con sync:false se piden en el panel al crear el servicio.
+services:
+  - type: web
+    name: predictor-brotes-api
+    runtime: python
+    plan: free
+    region: oregon
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    # Migraciones + seed idempotente en cada arranque (el plan gratis no tiene "pre-deploy")
+    startCommand: alembic upgrade head && python -m app.seed && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CRON_SECRET
+        generateValue: true
+      - key: CORS_ORIGINS
+        sync: false
+      - key: ADMIN_EMAIL
+        value: admin@predictor.co
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: DEMO_PASSWORD
+        sync: false
+      - key: SEED_CLIMA_REAL
+        value: "true"
