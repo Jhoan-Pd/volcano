@@ -45,6 +45,12 @@ class Settings(BaseSettings):
     SEED_CLIMA_REAL: bool = True
     SEED_ANIO_INICIO: int = 2020
 
+    # Google Trends (pytrends no es oficial: puede fallar o bloquearse; hay caché en BD y CSV de respaldo)
+    TRENDS_HABILITADO: bool = True
+    TRENDS_REGION: str = "CO-NAR"
+    TRENDS_CSV_DIR: str = "data/trends"
+    TRENDS_PAUSA_SEGUNDOS: float = 2.0
+
     @field_validator("DATABASE_URL")
     @classmethod
     def normalizar_url(cls, v: str) -> str:

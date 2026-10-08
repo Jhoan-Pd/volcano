@@ -1,4 +1,4 @@
-# Backend — Predictor de Brotes Nariño (Fase 1)
+# Backend — Predictor de Brotes Nariño (Fases 1-3)
 fastapi==0.142.2
 uvicorn[standard]==0.54.0
 SQLAlchemy==2.1.3
@@ -14,3 +14,5 @@ httpx==0.28.1
 epiweeks==2.4.0
 numpy==2.5.3
 pandas==3.0.6
+# Fase 2: Google Trends (no oficial; con caché en BD y respaldo CSV)
+pytrends==4.9.2
