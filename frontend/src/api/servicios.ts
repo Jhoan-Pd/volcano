@@ -1,7 +1,7 @@
 import { api } from "./cliente";
 import type {
   ClimaActual, ClimaDiario, Pagina, ResumenDashboard, RiesgoMunicipio, SerieEnfermedad, Usuario,
-  Municipio, Enfermedad,
+  Municipio, Enfermedad, Categoria, Farmacia, MiFarmacia, ReporteSemanal,
 } from "./tipos";
 
 export const authApi = {
@@ -51,4 +51,20 @@ export const crudApi = {
   eliminar: async (recurso: string, id: number) => {
     await api.delete(`/${recurso}/${id}`);
   },
+};
+
+/** Panel de farmacia (Fase 2). `farmaciaId` solo lo usa el ADMIN. */
+export const farmaciaApi = {
+  miFarmacia: async (farmaciaId?: number) =>
+    (await api.get<MiFarmacia>("/farmacia/mi-farmacia", { params: { farmacia_id: farmaciaId } })).data,
+  historial: async (farmaciaId?: number, semanas = 26) =>
+    (await api.get<ReporteSemanal[]>("/farmacia/reportes", { params: { farmacia_id: farmaciaId, semanas } })).data,
+  crear: async (datos: { anio: number; semana_epi: number; items: { categoria: Categoria; unidades: number }[] }, farmaciaId?: number) =>
+    (await api.post<ReporteSemanal>("/farmacia/reportes", { ...datos, farmacia_id: farmaciaId })).data,
+  actualizar: async (anio: number, semana: number, items: { categoria: Categoria; unidades: number }[], farmaciaId?: number) =>
+    (await api.put<ReporteSemanal>(`/farmacia/reportes/${anio}/${semana}`, { items }, { params: { farmacia_id: farmaciaId } })).data,
+  eliminar: async (anio: number, semana: number, farmaciaId?: number) => {
+    await api.delete(`/farmacia/reportes/${anio}/${semana}`, { params: { farmacia_id: farmaciaId } });
+  },
+  farmacias: async () => (await api.get<Pagina<Farmacia>>("/farmacias", { params: { limit: 500 } })).data.items,
 };

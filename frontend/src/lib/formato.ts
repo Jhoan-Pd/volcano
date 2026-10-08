@@ -22,3 +22,12 @@ export const NIVELES_VOLCAN: Record<string, { etiqueta: string; descripcion: str
   NARANJA: { etiqueta: "Alerta Naranja", descripcion: "Erupción probable en días o semanas", nivel: "NARANJA" },
   ROJO: { etiqueta: "Alerta Roja", descripcion: "Erupción inminente o en curso", nivel: "ROJO" },
 };
+
+export const CATEGORIAS: Record<string, { etiqueta: string; ayuda: string }> = {
+  ANTIGRIPALES: { etiqueta: "Antigripales", ayuda: "Gripa, congestión, tos" },
+  ANTIPIRETICOS: { etiqueta: "Antipiréticos", ayuda: "Acetaminofén y similares para la fiebre" },
+  SALES_REHIDRATACION: { etiqueta: "Sales de rehidratación", ayuda: "Sobres o soluciones de SRO" },
+  INHALADORES: { etiqueta: "Inhaladores", ayuda: "Salbutamol, beclometasona…" },
+  TAPABOCAS: { etiqueta: "Tapabocas", ayuda: "Quirúrgicos y N95 (unidades)" },
+  REPELENTES: { etiqueta: "Repelentes", ayuda: "Repelentes de insectos" },
+};

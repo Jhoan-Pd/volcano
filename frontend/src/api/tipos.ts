@@ -173,3 +173,44 @@ export interface EventoVolcanico {
   es_simulado: boolean;
   creado_en: string;
 }
+
+// ── Fase 2: farmacias ─────────────────────────────────────────────────────────
+export type Categoria =
+  | "ANTIGRIPALES" | "ANTIPIRETICOS" | "SALES_REHIDRATACION" | "INHALADORES" | "TAPABOCAS" | "REPELENTES";
+
+export interface SemanaReportable {
+  anio: number;
+  semana_epi: number;
+  etiqueta: string;
+  fecha_inicio: string;
+  fecha_fin: string;
+  reportada: boolean;
+}
+
+export interface MiFarmacia {
+  id: number;
+  nombre: string;
+  nit: string;
+  direccion: string | null;
+  municipio_id: number;
+  municipio: string;
+  activa: boolean;
+  semanas_reportables: SemanaReportable[];
+  categorias: Categoria[];
+}
+
+export interface ReporteSemanal {
+  farmacia_id: number;
+  farmacia: string;
+  anio: number;
+  semana_epi: number;
+  etiqueta: string;
+  fecha_inicio: string;
+  fecha_fin: string;
+  items: { categoria: Categoria; unidades: number }[];
+  total_unidades: number;
+  es_simulado: boolean;
+  actualizado_en: string | null;
+  reportado_por: string | null;
+  editable: boolean;
+}
