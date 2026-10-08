@@ -1,9 +1,9 @@
 """Esquemas de municipios, enfermedades, farmacias y eventos volcánicos."""
 from datetime import date, datetime
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
-from app.models.enums import NivelVolcanico, TipoEventoVolcanico
+from app.models.enums import CategoriaProducto, NivelVolcanico, TipoEventoVolcanico
 from app.schemas.comun import ORMModel
 
 # ── Municipios ────────────────────────────────────────────────────────────────
@@ -53,13 +53,31 @@ class _UmbralesMixin(BaseModel):
         return self
 
 
-class EnfermedadBase(_UmbralesMixin):
+class _CategoriasMixin(BaseModel):
+    @field_validator("categorias_farmacia", check_fields=False)
+    @classmethod
+    def _categorias_validas(cls, v: str | None) -> str | None:
+        if not v:
+            return None
+        partes = [p.strip().upper() for p in v.split(",") if p.strip()]
+        invalidas = [p for p in partes if p not in CategoriaProducto.__members__]
+        if invalidas:
+            raise ValueError(f"Categorías inválidas: {', '.join(invalidas)}. "
+                             f"Válidas: {', '.join(CategoriaProducto.__members__)}")
+        return ",".join(partes)
+
+
+class EnfermedadBase(_UmbralesMixin, _CategoriasMixin):
     codigo: str = Field(pattern=r"^[A-Z0-9_]{2,20}$", description="Ej.: IRA, EDA, DENGUE")
     nombre: str = Field(min_length=2, max_length=100)
     descripcion: str | None = None
     codigo_cie10: str | None = Field(default=None, max_length=40)
     recomendaciones: str | None = None
     terminos_busqueda: str | None = Field(default=None, max_length=300)
+    codigos_sivigila: str | None = Field(default=None, pattern=r"^\d{3}(,\d{3})*$", max_length=60,
+                                         description="Códigos de evento INS separados por coma, ej. 210,220")
+    categorias_farmacia: str | None = Field(default=None, max_length=200,
+                                            description="Categorías de venta separadas por coma, ej. ANTIGRIPALES")
     color: str = Field(default="#2a78d6", pattern=r"^#[0-9a-fA-F]{6}$")
     umbral_amarillo_pct: int = Field(default=50, ge=1, le=99)
     umbral_naranja_pct: int = Field(default=75, ge=1, le=99)
@@ -71,13 +89,15 @@ class EnfermedadCreate(EnfermedadBase):
     pass
 
 
-class EnfermedadUpdate(_UmbralesMixin):
+class EnfermedadUpdate(_UmbralesMixin, _CategoriasMixin):
     codigo: str | None = Field(default=None, pattern=r"^[A-Z0-9_]{2,20}$")
     nombre: str | None = Field(default=None, min_length=2, max_length=100)
     descripcion: str | None = None
     codigo_cie10: str | None = None
     recomendaciones: str | None = None
     terminos_busqueda: str | None = None
+    codigos_sivigila: str | None = Field(default=None, pattern=r"^\d{3}(,\d{3})*$", max_length=60)
+    categorias_farmacia: str | None = Field(default=None, max_length=200)
     color: str | None = Field(default=None, pattern=r"^#[0-9a-fA-F]{6}$")
     umbral_amarillo_pct: int | None = Field(default=None, ge=1, le=99)
     umbral_naranja_pct: int | None = Field(default=None, ge=1, le=99)
