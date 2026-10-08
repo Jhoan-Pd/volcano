@@ -12,7 +12,7 @@ from sqlalchemy import text
 from app.core.config import settings
 from app.core.errors import registrar_manejadores
 from app.db.session import engine
-from app.routers import auth, catalogos, clima, dashboard, datos, jobs, usuarios
+from app.routers import auth, catalogos, clima, dashboard, datos, farmacia, jobs, usuarios
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
@@ -48,7 +48,8 @@ app.add_middleware(
 registrar_manejadores(app)
 
 for r in (auth.router, usuarios.router, catalogos.municipios, catalogos.enfermedades, catalogos.farmacias,
-          catalogos.eventos_volcanicos, clima.router, dashboard.router, datos.router, jobs.router):
+          catalogos.eventos_volcanicos, clima.router, dashboard.router, datos.router, farmacia.router,
+          jobs.router):
     app.include_router(r, prefix=settings.API_PREFIX)
 
 
