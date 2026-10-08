@@ -55,3 +55,8 @@ def admin_headers(client):
 @pytest.fixture
 def ciudadano_headers(client):
     return {"Authorization": f"Bearer {_token(client, 'ciudadano@demo.co', 'Demo12345')}"}
+
+
+@pytest.fixture
+def farmacia_headers(client):
+    return {"Authorization": f"Bearer {_token(client, 'farmacia@demo.co', 'Demo12345')}"}
