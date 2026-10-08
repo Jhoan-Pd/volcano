@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+/* Modo oscuro por clase (.dark en <html>), controlado por el botón de tema */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ── Tokens de diseño ─────────────────────────────────────────────────────
+   Superficies cálidas (inspiradas en la ceniza y la roca volcánica), un acento
+   "brasa" heredado del sistema anterior (#D4873A) y una paleta de estado fija
+   para el semáforo (siempre acompañada de icono + texto, nunca solo color). */
+:root {
+  color-scheme: light;
+  --page: #f6f5f2;
+  --surface: #fcfcfb;
+  --surface-2: #f0efeb;
+  --ink: #171614;
+  --ink-2: #52514e;
+  --muted: #7d7b75;
+  --line: #e3e1da;
+  --axis: #c3c2b7;
+  --accent: #b8692a;
+  --accent-soft: #f6e6d6;
+
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+
+  --st-verde: #0ca30c;
+  --st-amarillo: #fab219;
+  --st-naranja: #ec835a;
+  --st-rojo: #d03b3b;
+  --st-verde-ink: #0a6b0a;
+  --st-amarillo-ink: #8a5a00;
+  --st-naranja-ink: #9e3f17;
+  --st-rojo-ink: #a52222;
+  --band-op: 0.16;
+}
+
+.dark {
+  color-scheme: dark;
+  --page: #0e0d0c;
+  --surface: #1a1918;
+  --surface-2: #232220;
+  --ink: #f5f4f0;
+  --ink-2: #c3c2b7;
+  --muted: #8f8d86;
+  --line: #2e2d2a;
+  --axis: #3d3c38;
+  --accent: #e0954f;
+  --accent-soft: #3a2a1c;
+
+  --series-1: #3987e5;
+  --series-2: #d95926;
+
+  --st-verde-ink: #4fd34f;
+  --st-amarillo-ink: #fbc34d;
+  --st-naranja-ink: #f3a383;
+  --st-rojo-ink: #ef7d7d;
+  --band-op: 0.2;
+}
+
+@theme inline {
+  --color-page: var(--page);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+html, body, #root { min-height: 100%; }
+body {
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* Recharts: textos de ejes con tinta "muted" */
+.recharts-cartesian-axis-tick-value { fill: var(--muted); font-size: 11px; }
+.recharts-surface:focus, .recharts-wrapper:focus, .recharts-sector:focus { outline: none; }
