@@ -110,6 +110,34 @@ class CasoOficialRepository(BaseRepository[CasoOficial]):
         fila = self.db.execute(stmt).first()
         return (fila[0], fila[1]) if fila else None
 
+    def upsert_lote(self, filas: list[dict]) -> tuple[int, int]:
+        """Inserta o actualiza por (municipio, enfermedad, año, semana). Devuelve (insertadas, actualizadas)."""
+        if not filas:
+            return 0, 0
+        claves = {(f["municipio_id"], f["enfermedad_id"]) for f in filas}
+        anios = {f["anio"] for f in filas}
+        existentes: dict[tuple, CasoOficial] = {}
+        for mid, eid in claves:
+            stmt = select(CasoOficial).where(CasoOficial.municipio_id == mid, CasoOficial.enfermedad_id == eid,
+                                             CasoOficial.anio.in_(anios))
+            for c in self.db.scalars(stmt):
+                existentes[(c.municipio_id, c.enfermedad_id, c.anio, c.semana_epi)] = c
+        insertadas = actualizadas = 0
+        for f in filas:
+            clave = (f["municipio_id"], f["enfermedad_id"], f["anio"], f["semana_epi"])
+            actual = existentes.get(clave)
+            if actual is None:
+                nuevo = CasoOficial(**f)
+                self.db.add(nuevo)
+                existentes[clave] = nuevo
+                insertadas += 1
+            else:
+                for k, v in f.items():
+                    setattr(actual, k, v)
+                actualizadas += 1
+        self.db.commit()
+        return insertadas, actualizadas
+
     def semanas(self, municipio_id: int, enfermedad_id: int, pares: list[tuple[int, int]]) -> list[CasoOficial]:
         if not pares:
             return []
