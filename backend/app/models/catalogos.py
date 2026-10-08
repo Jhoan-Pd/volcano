@@ -29,6 +29,10 @@ class Enfermedad(TimestampMixin, Base):
     codigo_cie10: Mapped[str | None] = mapped_column(String(40))
     recomendaciones: Mapped[str | None] = mapped_column(Text)  # una recomendación por línea
     terminos_busqueda: Mapped[str | None] = mapped_column(String(300))  # separados por coma
+    # Códigos de evento INS/SIVIGILA equivalentes (separados por coma), p. ej. "210,220" para dengue
+    codigos_sivigila: Mapped[str | None] = mapped_column(String(60))
+    # Categorías de farmacia cuyas ventas anticipan la enfermedad, p. ej. "ANTIGRIPALES,ANTIPIRETICOS"
+    categorias_farmacia: Mapped[str | None] = mapped_column(String(200))
     color: Mapped[str] = mapped_column(String(9), default="#2a78d6", nullable=False)
     # Umbrales del canal endémico (percentiles históricos de la misma semana)
     umbral_amarillo_pct: Mapped[int] = mapped_column(Integer, default=50, nullable=False)
