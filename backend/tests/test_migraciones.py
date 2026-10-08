@@ -21,3 +21,14 @@ def test_alembic_upgrade_head(tmp_path: Path):
     assert r.returncode == 0, r.stderr
     tablas = set(inspect(create_engine(url)).get_table_names())
     assert TABLAS <= tablas
+
+
+def test_modelos_y_migraciones_sincronizados(tmp_path: Path):
+    """`alembic check` falla si un modelo cambió y nadie generó la migración correspondiente."""
+    url = f"sqlite:///{tmp_path / 'chk.db'}"
+    env = {**os.environ, "DATABASE_URL": url}
+    raiz = Path(__file__).resolve().parents[1]
+    subprocess.run([sys.executable, "-m", "alembic", "upgrade", "head"], cwd=raiz, env=env, check=True,
+                   capture_output=True)
+    r = subprocess.run([sys.executable, "-m", "alembic", "check"], cwd=raiz, env=env, capture_output=True, text=True)
+    assert r.returncode == 0, r.stdout + r.stderr

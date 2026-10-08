@@ -33,4 +33,6 @@ class ReporteFarmacia(TimestampMixin, Base):
     semana_epi: Mapped[int] = mapped_column(Integer, nullable=False)
     categoria: Mapped[str] = mapped_column(String(30), nullable=False)  # CategoriaProducto
     unidades: Mapped[int] = mapped_column(Integer, nullable=False)
+    # Quién guardó o editó el reporte por última vez (trazabilidad)
+    reportado_por_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id", ondelete="SET NULL"))
     es_simulado: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
