@@ -45,6 +45,12 @@ class Settings(BaseSettings):
     SEED_CLIMA_REAL: bool = True
     SEED_ANIO_INICIO: int = 2020
 
+    # SIVIGILA / INS publicado en datos.gov.co (API Socrata). Dataset "Datos de Vigilancia en
+    # Salud Pública de Colombia": casos por evento, municipio de ocurrencia y semana (2007-2022).
+    SOCRATA_URL: str = "https://www.datos.gov.co/resource/4hyg-wa9d.json"
+    SOCRATA_APP_TOKEN: str | None = None  # opcional: sube el límite de peticiones
+    SIVIGILA_DEPARTAMENTO: str = "52"  # Nariño
+
     # Google Trends (pytrends no es oficial: puede fallar o bloquearse; hay caché en BD y CSV de respaldo)
     TRENDS_HABILITADO: bool = True
     TRENDS_REGION: str = "CO-NAR"
