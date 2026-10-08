@@ -23,7 +23,7 @@ MUNICIPIOS = [
 
 ENFERMEDADES = [
     {
-        "codigo": "IRA", "nombre": "Gripe / Infección Respiratoria Aguda",
+        "codigo": "IRA", "categorias_farmacia": "ANTIGRIPALES,ANTIPIRETICOS", "nombre": "Gripe / Infección Respiratoria Aguda",
         "descripcion": "Infecciones de vías respiratorias (gripa, bronquitis, neumonía). Aumentan con el frío, "
                        "la humedad y las temporadas de lluvia.",
         "codigo_cie10": "J00-J22", "color": "#2a78d6",
@@ -35,7 +35,7 @@ ENFERMEDADES = [
                            "Consulta de inmediato si hay dificultad para respirar o fiebre de más de 3 días.",
     },
     {
-        "codigo": "EDA", "nombre": "Enfermedad Diarreica Aguda",
+        "codigo": "EDA", "categorias_farmacia": "SALES_REHIDRATACION", "nombre": "Enfermedad Diarreica Aguda",
         "descripcion": "Diarrea de origen infeccioso. Se asocia a lluvias fuertes (contaminación de fuentes "
                        "de agua) y a temporadas secas (escasez de agua).",
         "codigo_cie10": "A00-A09", "color": "#1baf7a",
@@ -47,7 +47,7 @@ ENFERMEDADES = [
                            "Consulta si hay sangre en las heces, vómito persistente o signos de deshidratación.",
     },
     {
-        "codigo": "DENGUE", "nombre": "Dengue",
+        "codigo": "DENGUE", "categorias_farmacia": "REPELENTES,ANTIPIRETICOS", "codigos_sivigila": "210,220", "nombre": "Dengue",
         "descripcion": "Transmitido por el mosquito Aedes aegypti, que casi no sobrevive por encima de "
                        "~1.800 m s. n. m.; por eso el riesgo se concentra en Consacá y Sandoná y en casos "
                        "importados en Pasto.",
@@ -60,7 +60,7 @@ ENFERMEDADES = [
                            "Ante fiebre alta con dolor de cuerpo o detrás de los ojos, consulta y no tomes ibuprofeno ni aspirina.",
     },
     {
-        "codigo": "RESP_CENIZA", "nombre": "Afección respiratoria por ceniza volcánica",
+        "codigo": "RESP_CENIZA", "categorias_farmacia": "TAPABOCAS,INHALADORES", "nombre": "Afección respiratoria por ceniza volcánica",
         "descripcion": "Irritación de vías respiratorias, ojos y piel por caída de ceniza y gases (SO₂) del "
                        "Volcán Galeras. Afecta más a niños, adultos mayores y personas con asma o EPOC.",
         "codigo_cie10": "J68, J98.8", "color": "#4a3aa7",
