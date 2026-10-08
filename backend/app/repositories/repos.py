@@ -3,7 +3,8 @@ from datetime import date
 
 from sqlalchemy import and_, or_, select
 from app.models import (
-    CasoOficial, Enfermedad, EventoVolcanico, Farmacia, Municipio, RegistroClima, Rol, Usuario,
+    CasoOficial, Enfermedad, EventoVolcanico, Farmacia, Municipio, RegistroClima, Rol, TendenciaBusqueda,
+    Usuario,
 )
 from app.repositories.base import BaseRepository
 
@@ -117,3 +118,44 @@ class CasoOficialRepository(BaseRepository[CasoOficial]):
             CasoOficial.municipio_id == municipio_id, CasoOficial.enfermedad_id == enfermedad_id, cond)
         return list(self.db.scalars(stmt))
 
+
+
+class TendenciaRepository(BaseRepository[TendenciaBusqueda]):
+    model = TendenciaBusqueda
+
+    def serie(self, termino: str, region: str, desde: date | None = None) -> list[TendenciaBusqueda]:
+        stmt = select(TendenciaBusqueda).where(TendenciaBusqueda.termino == termino,
+                                               TendenciaBusqueda.region == region)
+        if desde:
+            stmt = stmt.where(TendenciaBusqueda.fecha_semana >= desde)
+        return list(self.db.scalars(stmt.order_by(TendenciaBusqueda.fecha_semana)))
+
+    def ultima_real(self, termino: str, region: str) -> TendenciaBusqueda | None:
+        """Último registro que vino de una fuente real (pytrends o CSV), no simulado."""
+        stmt = (select(TendenciaBusqueda)
+                .where(TendenciaBusqueda.termino == termino, TendenciaBusqueda.region == region,
+                       TendenciaBusqueda.es_simulado.is_(False))
+                .order_by(TendenciaBusqueda.fecha_semana.desc()).limit(1))
+        return self.db.scalars(stmt).first()
+
+    def upsert_lote(self, filas: list[dict]) -> int:
+        """Inserta o actualiza por (termino, region, anio, semana_epi)."""
+        if not filas:
+            return 0
+        terminos = {f["termino"] for f in filas}
+        existentes = {
+            (t.termino, t.region, t.anio, t.semana_epi): t
+            for t in self.db.scalars(select(TendenciaBusqueda).where(TendenciaBusqueda.termino.in_(terminos)))
+        }
+        for f in filas:
+            clave = (f["termino"], f["region"], f["anio"], f["semana_epi"])
+            actual = existentes.get(clave)
+            if actual is None:
+                nuevo = TendenciaBusqueda(**f)
+                self.db.add(nuevo)
+                existentes[clave] = nuevo
+            else:
+                for k, v in f.items():
+                    setattr(actual, k, v)
+        self.db.commit()
+        return len(filas)
