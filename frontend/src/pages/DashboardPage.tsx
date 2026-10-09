@@ -1,16 +1,21 @@
-import { Activity, CloudSun, Info, MapPin } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { Activity, CloudSun, Info, Map as IconoMapa, MapPin } from "lucide-react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { mensajeError } from "../api/cliente";
 import { catalogoApi, climaApi, dashboardApi } from "../api/servicios";
 import type {
   ClimaActual, ClimaDiario, Municipio, PrediccionEnfermedad, ResumenDashboard, RiesgoMunicipio, SerieEnfermedad,
 } from "../api/tipos";
 import CanalEndemicoChart from "../components/dashboard/CanalEndemicoChart";
+import type { ModoMapa } from "../components/dashboard/MapaRiesgo";
+import PanelExplicacion from "../components/dashboard/PanelExplicacion";
 import { ClimaActualCard, Recomendaciones, RiesgoMunicipiosTabla, VolcanCard } from "../components/dashboard/Paneles";
 import PronosticoClima from "../components/dashboard/PronosticoClima";
 import SemaforoCard from "../components/dashboard/SemaforoCard";
 import { Aviso, Card, CardHeader, claseInput, SimuladoBadge, Spinner } from "../components/ui";
 import { fmtFecha, fmtNum } from "../lib/formato";
+
+// Leaflet pesa ~150 kB: el mapa se descarga aparte, después del resto del dashboard
+const MapaRiesgo = lazy(() => import("../components/dashboard/MapaRiesgo"));
 
 const RANGOS = [
   { semanas: 26, etiqueta: "6 meses" },
@@ -28,6 +33,8 @@ export default function DashboardPage() {
   const [serie, setSerie] = useState<SerieEnfermedad | null>(null);
   const [prediccion, setPrediccion] = useState<PrediccionEnfermedad | null>(null);
   const [verValidacion, setVerValidacion] = useState(false);
+  const [modoMapa, setModoMapa] = useState<ModoMapa>("actual");
+  const [codigoMapa, setCodigoMapa] = useState("");
   const [climaActual, setClimaActual] = useState<ClimaActual | null>(null);
   const [pronostico, setPronostico] = useState<ClimaDiario[] | null>(null);
   const [porMunicipio, setPorMunicipio] = useState<RiesgoMunicipio[]>([]);
@@ -153,6 +160,56 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Explicabilidad + recomendaciones */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {municipioId != null && enfermedadId != null
+          ? <PanelExplicacion municipioId={municipioId} enfermedadId={enfermedadId} />
+          : <Card><Spinner /></Card>}
+        <Card className="min-w-0">
+          <CardHeader titulo="Recomendaciones de prevención" subtitulo="Ordenadas según el nivel de riesgo actual" />
+          {resumen ? <Recomendaciones riesgos={resumen.riesgos} /> : <Spinner />}
+        </Card>
+      </div>
+
+      {/* Mapa + tabla por municipio */}
+      <Card className="min-w-0">
+        <CardHeader titulo="Mapa de riesgo · zona de influencia del Galeras" icono={<IconoMapa size={17} />}
+          subtitulo="Haz clic en un municipio para ver su detalle arriba."
+          accion={
+            <div className="flex flex-wrap items-center gap-2">
+              <select className="rounded-lg border border-line bg-surface px-2 py-1.5 text-xs text-ink focus:border-accent focus:outline-none" value={codigoMapa} onChange={(e) => setCodigoMapa(e.target.value)}
+                aria-label="Enfermedad del mapa">
+                <option value="">Todas (la de mayor riesgo)</option>
+                {resumen?.riesgos.map((r) => <option key={r.codigo} value={r.codigo}>{r.nombre}</option>)}
+              </select>
+              <div className="flex rounded-lg border border-line p-0.5 text-xs" role="group" aria-label="Periodo del mapa">
+                {([["actual", "Semana actual"], ["predicho", "Próximas 4 semanas"]] as const).map(([v, t]) => (
+                  <button key={v} onClick={() => setModoMapa(v)} aria-pressed={modoMapa === v}
+                    className={`rounded-md px-2.5 py-1 font-medium ${modoMapa === v ? "bg-surface-2 text-ink" : "text-muted hover:text-ink"}`}>
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+          } />
+        {porMunicipio.length === 0 ? <Spinner /> : (
+          <div className="grid gap-4 px-5 pb-5 lg:grid-cols-5">
+            <div className="lg:col-span-3">
+              <Suspense fallback={<Spinner texto="Cargando mapa…" />}>
+                <MapaRiesgo filas={porMunicipio} modo={modoMapa} codigo={codigoMapa} seleccionado={municipioId}
+                  enfermedades={resumen?.riesgos.map((r) => ({ codigo: r.codigo, nombre: r.nombre })) ?? []}
+                  onSeleccionar={(id) => { setMunicipioId(id); window.scrollTo({ top: 0, behavior: "smooth" }); }} />
+              </Suspense>
+            </div>
+            <div className="-mx-5 lg:col-span-2 lg:mx-0">
+              <RiesgoMunicipiosTabla filas={porMunicipio} seleccionado={municipioId} predicho={modoMapa === "predicho"}
+                enfermedades={resumen?.riesgos.map((r) => ({ codigo: r.codigo, nombre: r.nombre })) ?? []}
+                onSeleccionar={(id) => { setMunicipioId(id); window.scrollTo({ top: 0, behavior: "smooth" }); }} />
+            </div>
+          </div>
+        )}
+      </Card>
+
       {/* Pronóstico */}
       <Card>
         <CardHeader titulo="Pronóstico del clima · próximos 16 días" icono={<CloudSun size={17} />}
@@ -163,23 +220,6 @@ export default function DashboardPage() {
             : <PronosticoClima dias={pronostico} />}
         </div>
       </Card>
-
-      {/* Municipios + recomendaciones */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="min-w-0">
-          <CardHeader titulo="Riesgo por municipio" icono={<MapPin size={17} />}
-            subtitulo="Haz clic en un municipio para ver su detalle. El mapa llega en la Fase 3." />
-          {porMunicipio.length === 0 ? <Spinner /> : (
-            <RiesgoMunicipiosTabla filas={porMunicipio} seleccionado={municipioId}
-              enfermedades={resumen?.riesgos.map((r) => ({ codigo: r.codigo, nombre: r.nombre })) ?? []}
-              onSeleccionar={(id) => { setMunicipioId(id); window.scrollTo({ top: 0, behavior: "smooth" }); }} />
-          )}
-        </Card>
-        <Card className="min-w-0">
-          <CardHeader titulo="Recomendaciones de prevención" subtitulo="Ordenadas según el nivel de riesgo actual" />
-          {resumen ? <Recomendaciones riesgos={resumen.riesgos} /> : <Spinner />}
-        </Card>
-      </div>
     </div>
   );
 }
