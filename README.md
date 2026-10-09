@@ -58,6 +58,7 @@ sentinela-predictor/
 │   └── ci.yml                     # pytest + alembic check + build del frontend
 ├── render.yaml                    # Blueprint de Render (backend)
 ├── docs/                          # Paso 0, capturas, plantillas CSV, reporte PDF de ejemplo
+├── legacy/sentinelaia/            # sistema anterior (ETL + XGBoost + Streamlit), sin cambios, como referencia
 ├── backend/
 │   ├── app/
 │   │   ├── main.py                # App FastAPI, CORS, routers, /health, entrenamiento inicial
@@ -297,14 +298,16 @@ pytest                              # 76 pruebas
 
 ### Paso 0 · Subir el repositorio a GitHub
 
-El repositorio ya trae todo el historial (ramas, commits y etiquetas). Crea un repositorio **vacío** en github.com (sin README ni licencia) y desde la carpeta `sentinela-predictor`:
+El código vive en <https://github.com/Jhoan-Pd/volcano>. La reforma se integró sobre el historial anterior de SentinelaIA (no se reescribe nada de lo que ya estaba publicado), así que basta con un *push* normal desde la carpeta `sentinela-predictor`:
 
 ```powershell
-git remote add origin https://github.com/TU_USUARIO/sentinela-predictor.git
-git push -u origin main
+git remote -v                       # origin debe ser https://github.com/Jhoan-Pd/volcano.git
+git push origin main
 git push origin --all               # sube también las ramas de cada funcionalidad
 git push origin --tags              # sube v0.5.0, v0.8.0 y v1.0.0
 ```
+
+> Si antes desplegaste el portal estático de SentinelaIA en Vercel desde este repositorio, ese proyecto usaba `public/` en la raíz. Ese código ahora está en `legacy/sentinelaia/`: cambia el **Root Directory** del proyecto de Vercel a `frontend` (paso 3) o crea un proyecto nuevo.
 
 ### Paso 1 · Base de datos en Neon (recomendado)
 
@@ -439,6 +442,7 @@ git log v0.5.0..v0.8.0 --oneline    # lo que se hizo en la Fase 2
 - **Ramas:** `feature/*` (funcionalidades), `fix/*` (correcciones), `chore/*`, `docs/*`, `test/*`.
 - **Mensajes:** [Conventional Commits](https://www.conventionalcommits.org/es/) en español: `feat(alcance): …`, `fix`, `test`, `docs`, `build`, `ci`, `style`, `perf`, `chore`.
 - **Etiquetas:** `v0.5.0` (Fase 1), `v0.8.0` (Fase 2), `v1.0.0` (Fase 3).
+- **Sistema anterior:** el historial de SentinelaIA (abril-septiembre de 2026) se conserva; la reforma se unió a él con un *merge* y el código previo quedó en `legacy/sentinelaia/`.
 
 ---
 

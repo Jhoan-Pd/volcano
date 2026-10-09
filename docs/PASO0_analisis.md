@@ -18,7 +18,7 @@ Sistema analizado: carpeta `Final/` y repositorio `BI_Health_Nari-o` (SentinelaI
 | | Scripts sueltos con rutas relativas | Clases `FuenteDatos` (Strategy/Adapter) |
 | | CSV como almacenamiento | PostgreSQL con migraciones Alembic |
 | | Nivel volcánico verde/naranja en el CSV | El SGC mantuvo al Galeras en Alerta Amarilla; se registra así |
-| **Se elimina** (del sistema nuevo; el repositorio original no se toca) | Streamlit `app.py` | No tiene JWT ni roles, sus formularios CRUD son limitados, no expone API REST y no corre en Vercel |
+| **Se elimina** (del sistema nuevo; el código original se conserva en `legacy/sentinelaia/`) | Streamlit `app.py` | No tiene JWT ni roles, sus formularios CRUD son limitados, no expone API REST y no corre en Vercel |
 | | Scraping con Selenium del portal INS y los scripts `inspect_*`, `test_selenium.py`, `temp_debug_dane.py`, `list_ins_event_options.py`, `discover_ins_links.py` | Frágiles y no corren en Render; la API Socrata los reemplaza |
 | | Archivos `.pkl` sueltos | Los modelos se guardan en la tabla `modelos_entrenados` con fecha y métricas |
 | | Duplicados en la raíz de `Final/` y el Power BI embebido | Desorden y dependencia de licencia |
