@@ -1,0 +1,73 @@
+# Actualización automática diaria: clima, búsquedas, (SIVIGILA), predicciones y alertas.
+# Secretos del repositorio (Settings → Secrets and variables → Actions):
+#   API_URL      URL pública del backend en Render, sin "/" final
+#   CRON_SECRET  el mismo valor de la variable CRON_SECRET del backend
+name: Actualizar datos
+
+on:
+  schedule:
+    - cron: "0 11 * * *" # 11:00 UTC = 6:00 a. m. en Colombia
+  workflow_dispatch:
+    inputs:
+      sivigila:
+        description: "Descargar SIVIGILA (auto = solo los lunes)"
+        type: choice
+        options: [auto, si, "no"]
+        default: auto
+      reentrenar:
+        description: "Reentrenar el modelo (auto = los lunes)"
+        type: choice
+        options: [auto, si, "no"]
+        default: auto
+
+concurrency:
+  group: actualizar-datos
+  cancel-in-progress: false
+
+jobs:
+  actualizar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Verificar secretos
+        env:
+          API_URL: ${{ secrets.API_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$API_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "::error::Faltan los secretos API_URL y/o CRON_SECRET en el repositorio"
+            exit 1
+          fi
+
+      # El plan gratis de Render duerme el servicio tras 15 min sin uso: primero hay que despertarlo
+      - name: Despertar el backend
+        env:
+          API_URL: ${{ secrets.API_URL }}
+        run: |
+          for i in $(seq 1 12); do
+            if curl -fsS --max-time 20 "$API_URL/health"; then echo; echo "Backend listo"; exit 0; fi
+            echo "Intento $i: el backend aún no responde, espero 15 s…"
+            sleep 15
+          done
+          echo "::error::El backend no respondió en 3 minutos"
+          exit 1
+
+      - name: Ejecutar la actualización
+        env:
+          API_URL: ${{ secrets.API_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SIVIGILA: ${{ inputs.sivigila || 'auto' }}
+          REENTRENAR: ${{ inputs.reentrenar || 'auto' }}
+        run: |
+          codigo=$(curl -sS --max-time 600 -o respuesta.json -w "%{http_code}" -X POST \
+            -H "X-Cron-Secret: $CRON_SECRET" \
+            "$API_URL/api/v1/jobs/actualizar-datos?sivigila=$SIVIGILA&reentrenar=$REENTRENAR")
+          echo "HTTP $codigo"
+          jq . respuesta.json || cat respuesta.json
+          {
+            echo "## Actualización diaria"
+            echo "| Paso | Estado | Segundos |"
+            echo "|---|---|---|"
+            jq -r '.pasos[]? | "| \(.paso) | \(if .ok then "✅" else "❌ \(.error)" end) | \(.segundos) |"' respuesta.json
+          } >> "$GITHUB_STEP_SUMMARY"
+          [ "$codigo" = "200" ]
