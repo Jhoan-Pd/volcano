@@ -1,8 +1,9 @@
 import { LogIn, UserPlus } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { mensajeError } from "../api/cliente";
-import { authApi } from "../api/servicios";
+import { authApi, catalogoApi } from "../api/servicios";
+import type { Municipio } from "../api/tipos";
 import { Aviso, Boton, Card, claseInput, Etiqueta } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 
@@ -14,9 +15,17 @@ export default function LoginPage() {
   const [nombre, setNombre] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [municipioId, setMunicipioId] = useState<number | "">("");
+  const [municipios, setMunicipios] = useState<Municipio[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+
+  useEffect(() => {
+    if (modo === "registro" && municipios.length === 0) {
+      catalogoApi.municipios().then((ms) => setMunicipios(ms.filter((m) => m.activo))).catch(() => undefined);
+    }
+  }, [modo, municipios.length]);
 
   // Destino según el rol (si venía de una ruta protegida, se regresa allí)
   const destino = (rol: string) => desde ?? (rol === "ADMIN" ? "/admin" : rol === "FARMACIA" ? "/farmacia" : "/");
@@ -27,7 +36,7 @@ export default function LoginPage() {
     setError(null); setOk(null); setEnviando(true);
     try {
       if (modo === "registro") {
-        await authApi.registro({ nombre, email, password });
+        await authApi.registro({ nombre, email, password, municipio_id: municipioId === "" ? null : municipioId });
         setOk("Cuenta creada. Ya puedes iniciar sesión.");
         setModo("login");
       } else {
@@ -48,12 +57,20 @@ export default function LoginPage() {
         <p className="mt-1 text-sm text-ink-2">
           {modo === "login"
             ? "El dashboard es público; inicia sesión para administrar datos o reportar como farmacia."
-            : "Los ciudadanos registrados recibirán alertas tempranas (Fase 3)."}
+            : "Elige tu municipio: te enviaremos por correo las alertas tempranas de riesgo alto o muy alto."}
         </p>
         <form onSubmit={enviar} className="mt-6 space-y-4" noValidate>
           {modo === "registro" && (
             <Etiqueta texto="Nombre completo">
               <input className={claseInput} value={nombre} onChange={(e) => setNombre(e.target.value)} required minLength={3} autoComplete="name" />
+            </Etiqueta>
+          )}
+          {modo === "registro" && (
+            <Etiqueta texto="Municipio donde vives" ayuda="Recibirás las alertas de este municipio.">
+              <select className={claseInput} value={municipioId} onChange={(e) => setMunicipioId(e.target.value ? Number(e.target.value) : "")}>
+                <option value="">Sin municipio (no recibir correos)</option>
+                {municipios.map((m) => <option key={m.id} value={m.id}>{m.nombre}</option>)}
+              </select>
             </Etiqueta>
           )}
           <Etiqueta texto="Correo electrónico">
