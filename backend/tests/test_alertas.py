@@ -110,3 +110,26 @@ def test_adaptador_resend():
     assert cuerpo == {"from": "Predictor <a@b.co>", "to": ["x@y.co"], "subject": "Asunto", "html": "<p>hola</p>"}
     assert n.enviar(["x@y.co"], "Asunto", "<p>hola</p>") is False  # error del proveedor: no rompe nada
     assert n.enviar([], "Asunto", "x") is False
+
+
+def test_ciudadanos_reciben_solo_las_alertas_de_su_municipio(db, brote_dengue, monkeypatch):
+    from app.core.security import hash_password
+    from app.models import Rol, Usuario
+
+    mid, eid = brote_dengue
+    rol = db.query(Rol).filter_by(nombre="CIUDADANO").one()
+    db.add(Usuario(nombre="Vecina de Consacá", email="vecina@consaca.co", password_hash=hash_password("Clave1234"),
+                   rol_id=rol.id, municipio_id=mid))
+    db.commit()
+    monkeypatch.setattr(settings, "ALERTAS_EMAIL_DESTINO", "")
+    monkeypatch.setattr(settings, "ALERTAS_A_CIUDADANOS", True)
+    a = _mias(db, brote_dengue)[0]
+    a.activa, a.cerrada_en, a.notificada_email, a.nivel_riesgo = True, None, False, "ROJO"
+    db.commit()
+    correo = CorreoFalso()
+    AlertaService(db, notificador=correo).notificar()
+    para_vecina = [e for e in correo.enviados if e[0] == ["vecina@consaca.co"]]
+    assert len(para_vecina) == 1 and "Consacá" in para_vecina[0][2]
+    assert all("Pasto" not in e[2] or e[0] != ["vecina@consaca.co"] for e in correo.enviados)
+    db.refresh(a)
+    assert a.notificada_email
