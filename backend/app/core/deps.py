@@ -1,4 +1,5 @@
 """Dependencias de FastAPI: sesión de BD, usuario autenticado y control de roles."""
+import secrets
 from collections.abc import Callable
 
 import jwt
@@ -48,5 +49,6 @@ solo_admin = requiere_roles(RolNombre.ADMIN)
 
 def verificar_cron(x_cron_secret: str | None = Header(default=None)) -> None:
     """Protege los endpoints que llama GitHub Actions con un secreto compartido."""
-    if not x_cron_secret or x_cron_secret != settings.CRON_SECRET:
+    # compare_digest compara en tiempo constante (no filtra el secreto por tiempos de respuesta)
+    if not x_cron_secret or not secrets.compare_digest(x_cron_secret, settings.CRON_SECRET):
         raise NoAutenticadoError("Secreto de cron inválido")
