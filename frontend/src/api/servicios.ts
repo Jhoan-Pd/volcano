@@ -3,6 +3,7 @@ import type {
   ClimaActual, ClimaDiario, Pagina, ResumenDashboard, RiesgoMunicipio, SerieEnfermedad, Usuario,
   Municipio, Enfermedad, Categoria, Farmacia, MiFarmacia, ReporteSemanal,
   PrediccionEnfermedad, ExplicacionPrediccion, ModeloEntrenado, EstadoEntrenamiento,
+  ResultadoTendencias, ResultadoSivigila, ResultadoImportacion, TipoImportacion, EstadoFuente,
 } from "./tipos";
 
 export const authApi = {
@@ -86,4 +87,20 @@ export const farmaciaApi = {
     await api.delete(`/farmacia/reportes/${anio}/${semana}`, { params: { farmacia_id: farmaciaId } });
   },
   farmacias: async () => (await api.get<Pagina<Farmacia>>("/farmacias", { params: { limit: 500 } })).data.items,
+};
+
+/** Fuentes de datos (Fase 2): sincronización e importación, solo ADMIN. */
+export const datosApi = {
+  estado: async () => (await api.get<{ fuentes: EstadoFuente[] }>("/datos/estado")).data.fuentes,
+  sincronizarTendencias: async (forzar = false) =>
+    (await api.post<ResultadoTendencias>("/datos/sincronizar/tendencias", null, { params: { forzar }, timeout: 180_000 })).data,
+  sincronizarSivigila: async (desdeAnio = 2020) =>
+    (await api.post<ResultadoSivigila>("/datos/sincronizar/sivigila", null, {
+      params: { desde_anio: desdeAnio }, timeout: 180_000, // datos.gov.co pagina miles de registros
+    })).data,
+  importar: async (tipo: TipoImportacion, archivo: File) => {
+    const form = new FormData();
+    form.append("archivo", archivo);
+    return (await api.post<ResultadoImportacion>(`/datos/importar/${tipo}`, form)).data;
+  },
 };
