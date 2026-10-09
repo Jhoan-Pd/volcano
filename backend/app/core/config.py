@@ -64,7 +64,9 @@ class Settings(BaseSettings):
     RESEND_API_KEY: str | None = None
     RESEND_URL: str = "https://api.resend.com/emails"
     ALERTAS_EMAIL_REMITENTE: str = "Predictor de Brotes <onboarding@resend.dev>"
-    ALERTAS_EMAIL_DESTINO: str = ""  # correos separados por coma
+    ALERTAS_EMAIL_DESTINO: str = ""  # correos separados por coma (secretaría de salud, administradores)
+    # Enviar también a los ciudadanos registrados las alertas de SU municipio (un correo por persona)
+    ALERTAS_A_CIUDADANOS: bool = True
     FRONTEND_URL: str = "http://localhost:5173"
 
     @field_validator("DATABASE_URL")

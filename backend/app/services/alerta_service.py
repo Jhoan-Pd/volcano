@@ -7,7 +7,8 @@ NARANJA o ROJO, ya sea:
 
 Cada evaluación es idempotente: hay como máximo una alerta activa por municipio,
 enfermedad, semana y origen (si el nivel sube, se actualiza). Las alertas cuyo motivo ya
-no se cumple se cierran solas. Las alertas nuevas se envían por correo (Resend) una sola vez.
+no se cumple se cierran solas. Las alertas nuevas se envían por correo (Resend) una sola vez: a
+ALERTAS_EMAIL_DESTINO y a los ciudadanos registrados en el municipio afectado.
 """
 import logging
 from dataclasses import dataclass, field
@@ -18,8 +19,8 @@ from sqlalchemy import func, select
 from app.core.config import settings
 from app.core.epi import etiqueta
 from app.core.errors import NoEncontradoError
-from app.models import Alerta
-from app.models.enums import NivelRiesgo
+from app.models import Alerta, Rol, Usuario
+from app.models.enums import NivelRiesgo, RolNombre
 from app.notificaciones.correo import NotificadorCorreo, html_alertas, notificador_por_defecto
 from app.repositories.repos import EnfermedadRepository, MunicipioRepository
 from app.schemas.alerta import AlertaOut, ResultadoEvaluacion
@@ -145,22 +146,41 @@ class AlertaService:
         return ResultadoEvaluacion(nuevas=len(nuevas), actualizadas=actualizadas, cerradas=cerradas,
                                    activas=len(vigentes), correos_enviados=enviadas)
 
+    def _envios(self, pendientes: list[Alerta]) -> list[tuple[list[str], list[Alerta]]]:
+        """(destinatarios, alertas) de cada correo. Cada ciudadano recibe un correo propio con las
+        alertas de su municipio: así nadie ve las direcciones de los demás."""
+        envios = []
+        if settings.destinatarios_alertas:
+            envios.append((settings.destinatarios_alertas, pendientes))
+        if settings.ALERTAS_A_CIUDADANOS:
+            por_municipio: dict[int, list[Alerta]] = {}
+            for a in pendientes:
+                por_municipio.setdefault(a.municipio_id, []).append(a)
+            ciudadanos = self.db.scalars(select(Usuario).join(Rol).where(
+                Rol.nombre == RolNombre.CIUDADANO.value, Usuario.activo.is_(True),
+                Usuario.municipio_id.in_(list(por_municipio))))
+            for u in ciudadanos:
+                envios.append(([u.email], por_municipio[u.municipio_id]))
+        return envios
+
     def notificar(self) -> int:
         pendientes = list(self.db.scalars(select(Alerta).where(Alerta.activa.is_(True),
                                                                Alerta.notificada_email.is_(False))))
-        destinatarios = settings.destinatarios_alertas
-        if not pendientes or not destinatarios:
+        if not pendientes:
             return 0
-        filas = [{"nivel": a.nivel_riesgo, "nivel_texto": TEXTO_NIVEL.get(a.nivel_riesgo, a.nivel_riesgo),
-                  "mensaje": a.mensaje} for a in pendientes]
-        hay_rojo = any(a.nivel_riesgo == "ROJO" for a in pendientes)
-        asunto = f"{'🔴' if hay_rojo else '🟠'} {len(pendientes)} alerta(s) temprana(s) de brotes en Nariño"
-        if not self.notificador.enviar(destinatarios, asunto, html_alertas(filas, settings.FRONTEND_URL)):
-            return 0
+        notificadas: set[int] = set()
+        for destinatarios, alertas in self._envios(pendientes):
+            filas = [{"nivel": a.nivel_riesgo, "nivel_texto": TEXTO_NIVEL.get(a.nivel_riesgo, a.nivel_riesgo),
+                      "mensaje": a.mensaje} for a in alertas]
+            hay_rojo = any(a.nivel_riesgo == "ROJO" for a in alertas)
+            asunto = f"{'🔴' if hay_rojo else '🟠'} {len(alertas)} alerta(s) temprana(s) de brotes en Nariño"
+            if self.notificador.enviar(destinatarios, asunto, html_alertas(filas, settings.FRONTEND_URL)):
+                notificadas.update(a.id for a in alertas)
         for a in pendientes:
-            a.notificada_email = True
+            if a.id in notificadas:
+                a.notificada_email = True
         self.db.commit()
-        return len(pendientes)
+        return len(notificadas)
 
     # ── consultas ────────────────────────────────────────────────────────────
     def activas(self) -> list[AlertaOut]:
