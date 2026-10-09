@@ -19,3 +19,5 @@ pytrends==4.9.2
 # Fase 2: modelo predictivo
 scikit-learn==1.9.1
 joblib==1.6.0
+# Fase 3: reportes PDF
+reportlab==5.0.1
