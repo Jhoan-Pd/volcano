@@ -332,3 +332,39 @@ export interface ExplicacionPrediccion {
   factores: FactorExplicacion[];
   importancia_global: ImportanciasModelo | null;
 }
+
+// ── Fase 2: fuentes de datos ──────────────────────────────────────────────────
+export interface ResultadoTendencias {
+  fuente: string;
+  terminos: string[];
+  registros_guardados: number;
+  desde_cache: string[];
+  errores: string[];
+}
+
+export interface ResultadoSivigila {
+  enfermedades: string[];
+  anios_cubiertos: number[];
+  registros_guardados: number;
+  semanas_con_casos: number;
+  errores: string[];
+}
+
+export type TipoImportacion = "casos" | "clima" | "eventos" | "tendencias";
+
+export interface ResultadoImportacion {
+  tipo: TipoImportacion;
+  filas_leidas: number;
+  insertadas: number;
+  actualizadas: number;
+  errores: { fila: number; mensaje: string }[];
+}
+
+export interface EstadoFuente {
+  fuente: string;
+  tabla: string;
+  registros: number;
+  simulados: number;
+  ultima_semana: string | null;
+  ultima_actualizacion: string | null;
+}
