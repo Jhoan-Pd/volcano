@@ -9,6 +9,16 @@ class Umbrales(BaseModel):
     rojo: float
 
 
+class ResumenPrediccion(BaseModel):
+    """Lo que dice el modelo para las próximas 4 semanas (semáforo predictivo)."""
+    nivel_max: str
+    semana_pico: str
+    casos_esperados_h1: float
+    limite_inferior_h1: float
+    limite_superior_h1: float
+    algoritmo: str
+
+
 class RiesgoEnfermedad(BaseModel):
     enfermedad_id: int
     codigo: str
@@ -24,6 +34,7 @@ class RiesgoEnfermedad(BaseModel):
     nivel: str  # VERDE | AMARILLO | NARANJA | ROJO
     es_simulado: bool
     recomendaciones: list[str]
+    prediccion: ResumenPrediccion | None = None
 
 
 class EstadoVolcan(BaseModel):
@@ -79,7 +90,9 @@ class RiesgoMunicipio(BaseModel):
     latitud: float
     longitud: float
     nivel_max: str
-    detalle: dict[str, str]  # codigo enfermedad -> nivel
+    detalle: dict[str, str]  # codigo enfermedad -> nivel observado
+    nivel_max_predicho: str | None = None
+    detalle_predicho: dict[str, str] = {}  # codigo enfermedad -> nivel máximo de las próximas 4 semanas
 
 
 EstadoVolcan.model_rebuild()
