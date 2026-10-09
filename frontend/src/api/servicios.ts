@@ -115,3 +115,26 @@ export const alertaApi = {
     (await api.post<ResultadoEvaluacion>("/alertas/evaluar", null, { params: { enviar_correo: enviarCorreo } })).data,
   cerrar: async (id: number) => (await api.patch<Alerta>(`/alertas/${id}/cerrar`)).data,
 };
+
+/** Reportes (Fase 3): descarga como archivo usando un enlace temporal. */
+async function descargar(ruta: string, params: Record<string, unknown>, nombrePorDefecto: string) {
+  const r = await api.get<Blob>(ruta, { params, responseType: "blob", timeout: 120_000 });
+  const disposicion = String(r.headers["content-disposition"] ?? "");
+  const nombre = /filename="([^"]+)"/.exec(disposicion)?.[1] ?? nombrePorDefecto;
+  const url = URL.createObjectURL(r.data);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = nombre;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export const reporteApi = {
+  pdfMunicipio: (municipioId: number) => descargar("/reportes/resumen.pdf", { municipio_id: municipioId }, "reporte.pdf"),
+  casosCsv: (municipioId?: number, enfermedadId?: number) =>
+    descargar("/reportes/casos.csv", { municipio_id: municipioId, enfermedad_id: enfermedadId }, "casos.csv"),
+  prediccionesCsv: (municipioId?: number) => descargar("/reportes/predicciones.csv", { municipio_id: municipioId }, "predicciones.csv"),
+  alertasCsv: (soloActivas = false) => descargar("/reportes/alertas.csv", { solo_activas: soloActivas }, "alertas.csv"),
+};

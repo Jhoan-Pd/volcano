@@ -1,7 +1,7 @@
-import { BellRing, ChevronLeft, ChevronRight, MailCheck, RefreshCw } from "lucide-react";
+import { BellRing, ChevronLeft, ChevronRight, Download, MailCheck, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { mensajeError } from "../../api/cliente";
-import { alertaApi } from "../../api/servicios";
+import { alertaApi, reporteApi } from "../../api/servicios";
 import type { Alerta, Pagina } from "../../api/tipos";
 import { fmtFecha } from "../../lib/formato";
 import { Aviso, Boton, NivelChip, Spinner } from "../ui";
@@ -76,6 +76,9 @@ export default function PanelAlertas() {
               </button>
             ))}
           </div>
+          <Boton variante="secundario" onClick={() => reporteApi.alertasCsv().catch((e) => setError(mensajeError(e)))}>
+            <Download size={15} /> CSV
+          </Boton>
           <Boton onClick={evaluar} cargando={evaluando}><RefreshCw size={15} /> Evaluar ahora</Boton>
         </div>
       </div>

@@ -14,7 +14,7 @@ from sqlalchemy import text
 from app.core.config import settings
 from app.core.errors import registrar_manejadores
 from app.db.session import engine
-from app.routers import alertas, auth, catalogos, clima, dashboard, datos, farmacia, jobs, modelo, usuarios
+from app.routers import alertas, auth, catalogos, clima, dashboard, datos, farmacia, jobs, modelo, reportes, usuarios
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("predictor")
@@ -74,13 +74,14 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Disposition"],  # el frontend lee el nombre del archivo de los reportes
 )
 
 registrar_manejadores(app)
 
 for r in (auth.router, usuarios.router, catalogos.municipios, catalogos.enfermedades, catalogos.farmacias,
           catalogos.eventos_volcanicos, clima.router, dashboard.router, datos.router, farmacia.router,
-          modelo.router, alertas.router, jobs.router):
+          modelo.router, alertas.router, reportes.router, jobs.router):
     app.include_router(r, prefix=settings.API_PREFIX)
 
 
