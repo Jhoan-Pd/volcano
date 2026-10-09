@@ -282,8 +282,11 @@ def main() -> None:
         if args.entrenar:
             from app.services.prediccion_service import PrediccionService
 
+            from app.services.alerta_service import AlertaService
+
             modelos, errores = PrediccionService(db).entrenar()
             log.info("Modelos entrenados: %d %s", len(modelos), errores or "")
+            log.info("Alertas: %s", AlertaService(db).evaluar(enviar_correo=False))
     log.info("Seed completo en %.1fs", time.time() - t0)
 
 
