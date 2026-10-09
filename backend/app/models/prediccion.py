@@ -1,8 +1,8 @@
 """Modelos entrenados, predicciones y alertas (se llenan en Fases 2 y 3)."""
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, LargeBinary, String, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Index, Integer, LargeBinary, String, Text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, ahora_utc
 
@@ -46,6 +46,8 @@ class Prediccion(TimestampMixin, Base):
 
 class Alerta(TimestampMixin, Base):
     __tablename__ = "alertas"
+    __table_args__ = (Index("ix_alertas_municipio_enfermedad_semana", "municipio_id", "enfermedad_id", "anio",
+                            "semana_epi"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     municipio_id: Mapped[int] = mapped_column(ForeignKey("municipios.id", ondelete="CASCADE"), index=True, nullable=False)
@@ -55,5 +57,10 @@ class Alerta(TimestampMixin, Base):
     semana_epi: Mapped[int] = mapped_column(Integer, nullable=False)
     nivel_riesgo: Mapped[str] = mapped_column(String(10), nullable=False)
     mensaje: Mapped[str] = mapped_column(Text, nullable=False)
+    # OBSERVADO: los casos de la última semana ya superan el umbral · PREDICHO: el modelo lo anticipa
+    origen: Mapped[str] = mapped_column(String(10), default="PREDICHO", server_default="PREDICHO", nullable=False)
     activa: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     notificada_email: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    cerrada_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    municipio: Mapped["Municipio"] = relationship(lazy="joined")  # noqa: F821
+    enfermedad: Mapped["Enfermedad"] = relationship(lazy="joined")  # noqa: F821
