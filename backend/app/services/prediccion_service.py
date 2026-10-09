@@ -265,7 +265,11 @@ def tarea_reentrenar(enfermedad_id: int | None = None) -> None:
     try:
         with SessionLocal() as db:
             modelos, errores = PrediccionService(db).entrenar(enfermedad_id)
-        msg = f"{len(modelos)} modelo(s) entrenado(s) y predicciones actualizadas"
+            from app.services.alerta_service import AlertaService  # evita import circular
+
+            alertas = AlertaService(db).evaluar()
+        msg = (f"{len(modelos)} modelo(s) entrenado(s) y predicciones actualizadas; "
+               f"{alertas.activas} alerta(s) activa(s), {alertas.nuevas} nueva(s)")
         _estado = EstadoEntrenamiento(en_curso=False, inicio=_estado.inicio, fin=datetime.now(timezone.utc),
                                       mensaje=msg, errores=errores)
     except Exception as exc:  # noqa: BLE001 - se informa al panel en lugar de perderse en el log

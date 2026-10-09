@@ -1,0 +1,188 @@
+"""Alertas tempranas.
+
+Regla: se registra una alerta cuando el riesgo de una enfermedad en un municipio llega a
+NARANJA o ROJO, ya sea:
+    - OBSERVADO: los casos de la última semana con datos superan el percentil 75/90, o
+    - PREDICHO:  el modelo espera ese nivel en alguna de las próximas 4 semanas.
+
+Cada evaluación es idempotente: hay como máximo una alerta activa por municipio,
+enfermedad, semana y origen (si el nivel sube, se actualiza). Las alertas cuyo motivo ya
+no se cumple se cierran solas. Las alertas nuevas se envían por correo (Resend) una sola vez.
+"""
+import logging
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+
+from sqlalchemy import func, select
+
+from app.core.config import settings
+from app.core.epi import etiqueta
+from app.core.errors import NoEncontradoError
+from app.models import Alerta
+from app.models.enums import NivelRiesgo
+from app.notificaciones.correo import NotificadorCorreo, html_alertas, notificador_por_defecto
+from app.repositories.repos import EnfermedadRepository, MunicipioRepository
+from app.schemas.alerta import AlertaOut, ResultadoEvaluacion
+from app.schemas.comun import Pagina
+from app.services import riesgo_service as rs
+
+logger = logging.getLogger("predictor.alertas")
+
+NIVELES_ALERTA = (NivelRiesgo.NARANJA.value, NivelRiesgo.ROJO.value)
+TEXTO_NIVEL = {"NARANJA": "Riesgo alto", "ROJO": "Riesgo muy alto"}
+
+
+@dataclass
+class _Candidata:
+    municipio_id: int
+    enfermedad_id: int
+    anio: int
+    semana_epi: int
+    nivel: str
+    origen: str
+    mensaje: str
+    prediccion_id: int | None = None
+    extra: dict = field(default_factory=dict)
+
+
+def alerta_out(a: Alerta) -> AlertaOut:
+    return AlertaOut(
+        id=a.id, municipio_id=a.municipio_id, municipio=a.municipio.nombre, enfermedad_id=a.enfermedad_id,
+        enfermedad=a.enfermedad.nombre, codigo_enfermedad=a.enfermedad.codigo, anio=a.anio, semana_epi=a.semana_epi,
+        etiqueta=etiqueta(a.anio, a.semana_epi), nivel_riesgo=a.nivel_riesgo, origen=a.origen, mensaje=a.mensaje,
+        activa=a.activa, notificada_email=a.notificada_email, creado_en=a.creado_en, cerrada_en=a.cerrada_en,
+    )
+
+
+class AlertaService:
+    def __init__(self, db, notificador: NotificadorCorreo | None = None):
+        self.db = db
+        self.notificador = notificador or notificador_por_defecto()
+
+    # ── evaluación ───────────────────────────────────────────────────────────
+    def _candidatas(self) -> list[_Candidata]:
+        # Import local: dashboard_service importa prediccion_service, que no debe depender de alertas
+        from app.services.dashboard_service import DashboardService
+        from app.services.prediccion_service import PrediccionService
+
+        dash = DashboardService(self.db)
+        pred = PrediccionService(self.db)
+        try:
+            anio, semana = dash._semana_referencia()
+        except NoEncontradoError:
+            return []
+        salida = []
+        for enf in EnfermedadRepository(self.db).activas():
+            modelo = pred.modelo_activo(enf.id)
+            for m in MunicipioRepository(self.db).activos():
+                r = dash.riesgo_enfermedad(m, enf, anio, semana)
+                if r.nivel in NIVELES_ALERTA:
+                    salida.append(_Candidata(
+                        m.id, enf.id, anio, semana, r.nivel, "OBSERVADO",
+                        f"{enf.nombre} en {m.nombre}: {r.casos} casos en la semana {etiqueta(anio, semana)}, "
+                        f"por encima del percentil {enf.umbral_naranja_pct if r.nivel == 'NARANJA' else enf.umbral_rojo_pct} "
+                        f"de los últimos 5 años ({TEXTO_NIVEL[r.nivel].lower()})."))
+                if modelo is None:
+                    continue
+                preds = [p for p in pred._ultimas(modelo.id, m.id) if p.nivel_riesgo in NIVELES_ALERTA]
+                if preds:
+                    p = max(preds, key=lambda x: (rs.ORDEN_NIVELES.index(NivelRiesgo(x.nivel_riesgo)), x.casos_esperados))
+                    salida.append(_Candidata(
+                        m.id, enf.id, p.anio, p.semana_epi, p.nivel_riesgo, "PREDICHO",
+                        f"{enf.nombre} en {m.nombre}: el modelo espera {p.casos_esperados:.0f} casos "
+                        f"(entre {p.limite_inferior:.0f} y {p.limite_superior:.0f}) en la semana "
+                        f"{etiqueta(p.anio, p.semana_epi)} ({TEXTO_NIVEL[p.nivel_riesgo].lower()}).",
+                        prediccion_id=p.id))
+        return salida
+
+    def evaluar(self, enviar_correo: bool = True) -> ResultadoEvaluacion:
+        candidatas = self._candidatas()
+        ahora = datetime.now(timezone.utc)
+        desde = min((c.anio for c in candidatas), default=ahora.year) - 1
+        # Todas las alertas recientes (activas o cerradas) por clave; gana la más reciente
+        existentes: dict[tuple, Alerta] = {}
+        for a in self.db.scalars(select(Alerta).where((Alerta.activa.is_(True)) | (Alerta.anio >= desde))
+                                 .order_by(Alerta.id)):
+            existentes[(a.municipio_id, a.enfermedad_id, a.anio, a.semana_epi, a.origen)] = a
+        activas = {k: a for k, a in existentes.items() if a.activa}
+        nuevas: list[Alerta] = []
+        actualizadas = 0
+        vigentes = set()
+        for c in candidatas:
+            clave = (c.municipio_id, c.enfermedad_id, c.anio, c.semana_epi, c.origen)
+            a = existentes.get(clave)
+            sube = a is not None and (rs.ORDEN_NIVELES.index(NivelRiesgo(c.nivel))
+                                      > rs.ORDEN_NIVELES.index(NivelRiesgo(a.nivel_riesgo)))
+            if a is None:
+                a = Alerta(municipio_id=c.municipio_id, enfermedad_id=c.enfermedad_id, prediccion_id=c.prediccion_id,
+                           anio=c.anio, semana_epi=c.semana_epi, nivel_riesgo=c.nivel, origen=c.origen,
+                           mensaje=c.mensaje, activa=True)
+                self.db.add(a)
+                nuevas.append(a)
+            elif not a.activa:
+                # Un administrador la cerró: solo se reabre si el riesgo empeoró
+                if not sube:
+                    continue
+                a.activa, a.cerrada_en, a.notificada_email = True, None, False
+                a.nivel_riesgo, a.mensaje, a.prediccion_id = c.nivel, c.mensaje, c.prediccion_id
+                actualizadas += 1
+            elif a.mensaje != c.mensaje or a.nivel_riesgo != c.nivel:
+                a.nivel_riesgo, a.mensaje, a.prediccion_id = c.nivel, c.mensaje, c.prediccion_id
+                if sube:
+                    a.notificada_email = False  # se vuelve a avisar si empeora
+                actualizadas += 1
+            vigentes.add(clave)
+        cerradas = 0
+        for clave, a in activas.items():
+            if clave not in vigentes:
+                a.activa, a.cerrada_en = False, ahora
+                cerradas += 1
+        self.db.commit()
+
+        enviadas = self.notificar() if enviar_correo else 0
+        logger.info("Alertas: %d nuevas, %d actualizadas, %d cerradas, %d correos", len(nuevas), actualizadas,
+                    cerradas, enviadas)
+        return ResultadoEvaluacion(nuevas=len(nuevas), actualizadas=actualizadas, cerradas=cerradas,
+                                   activas=len(vigentes), correos_enviados=enviadas)
+
+    def notificar(self) -> int:
+        pendientes = list(self.db.scalars(select(Alerta).where(Alerta.activa.is_(True),
+                                                               Alerta.notificada_email.is_(False))))
+        destinatarios = settings.destinatarios_alertas
+        if not pendientes or not destinatarios:
+            return 0
+        filas = [{"nivel": a.nivel_riesgo, "nivel_texto": TEXTO_NIVEL.get(a.nivel_riesgo, a.nivel_riesgo),
+                  "mensaje": a.mensaje} for a in pendientes]
+        hay_rojo = any(a.nivel_riesgo == "ROJO" for a in pendientes)
+        asunto = f"{'🔴' if hay_rojo else '🟠'} {len(pendientes)} alerta(s) temprana(s) de brotes en Nariño"
+        if not self.notificador.enviar(destinatarios, asunto, html_alertas(filas, settings.FRONTEND_URL)):
+            return 0
+        for a in pendientes:
+            a.notificada_email = True
+        self.db.commit()
+        return len(pendientes)
+
+    # ── consultas ────────────────────────────────────────────────────────────
+    def activas(self) -> list[AlertaOut]:
+        alertas = self.db.scalars(select(Alerta).where(Alerta.activa.is_(True)))
+        orden = {"ROJO": 0, "NARANJA": 1}
+        return [alerta_out(a) for a in sorted(alertas, key=lambda a: (orden.get(a.nivel_riesgo, 2),
+                                                                         a.origen != "OBSERVADO", a.municipio_id))]
+
+    def listar(self, activa: bool | None, offset: int, limit: int) -> Pagina[AlertaOut]:
+        stmt = select(Alerta)
+        total = select(func.count()).select_from(Alerta)
+        if activa is not None:
+            stmt, total = stmt.where(Alerta.activa.is_(activa)), total.where(Alerta.activa.is_(activa))
+        filas = self.db.scalars(stmt.order_by(Alerta.creado_en.desc(), Alerta.id.desc()).offset(offset).limit(limit))
+        return Pagina[AlertaOut](items=[alerta_out(a) for a in filas], total=self.db.scalar(total) or 0,
+                                 offset=offset, limit=limit)
+
+    def cerrar(self, alerta_id: int) -> AlertaOut:
+        a = self.db.get(Alerta, alerta_id)
+        if a is None:
+            raise NoEncontradoError(f"Alerta {alerta_id} no existe")
+        if a.activa:
+            a.activa, a.cerrada_en = False, datetime.now(timezone.utc)
+            self.db.commit()
+        return alerta_out(a)

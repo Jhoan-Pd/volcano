@@ -4,6 +4,7 @@ import type {
   Municipio, Enfermedad, Categoria, Farmacia, MiFarmacia, ReporteSemanal,
   PrediccionEnfermedad, ExplicacionPrediccion, ModeloEntrenado, EstadoEntrenamiento,
   ResultadoTendencias, ResultadoSivigila, ResultadoImportacion, TipoImportacion, EstadoFuente,
+  Alerta, ResultadoEvaluacion,
 } from "./tipos";
 
 export const authApi = {
@@ -103,4 +104,14 @@ export const datosApi = {
     form.append("archivo", archivo);
     return (await api.post<ResultadoImportacion>(`/datos/importar/${tipo}`, form)).data;
   },
+};
+
+/** Alertas tempranas (Fase 3): activas públicas; gestión solo ADMIN. */
+export const alertaApi = {
+  activas: async () => (await api.get<Alerta[]>("/alertas/activas")).data,
+  listar: async (activa?: boolean, offset = 0, limit = 20) =>
+    (await api.get<Pagina<Alerta>>("/alertas", { params: { activa, offset, limit } })).data,
+  evaluar: async (enviarCorreo = true) =>
+    (await api.post<ResultadoEvaluacion>("/alertas/evaluar", null, { params: { enviar_correo: enviarCorreo } })).data,
+  cerrar: async (id: number) => (await api.patch<Alerta>(`/alertas/${id}/cerrar`)).data,
 };

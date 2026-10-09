@@ -1,8 +1,9 @@
-import { BrainCircuit, Bug, Database, MapPin, Mountain, Pill, Users } from "lucide-react";
+import { BellRing, BrainCircuit, Bug, Database, MapPin, Mountain, Pill, Users } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { catalogoApi } from "../api/servicios";
 import type { Municipio } from "../api/tipos";
 import CrudTable, { type Campo } from "../components/admin/CrudTable";
+import PanelAlertas from "../components/admin/PanelAlertas";
 import PanelDatos from "../components/admin/PanelDatos";
 import PanelModelo from "../components/admin/PanelModelo";
 import { Card } from "../components/ui";
@@ -13,7 +14,7 @@ const TIPOS_EVENTO = [
   { valor: "EMISION_GASES", etiqueta: "Emisión de gases" }, { valor: "SISMO", etiqueta: "Sismo" },
 ];
 
-type Pestana = "enfermedades" | "municipios" | "farmacias" | "usuarios" | "eventos" | "datos" | "modelo";
+type Pestana = "enfermedades" | "municipios" | "farmacias" | "usuarios" | "eventos" | "datos" | "modelo" | "alertas";
 
 export default function AdminPage() {
   const [pestana, setPestana] = useState<Pestana>("enfermedades");
@@ -22,7 +23,7 @@ export default function AdminPage() {
   useEffect(() => { catalogoApi.municipios().then(setMunicipios).catch(() => undefined); }, []);
   const opcMunicipios = useMemo(() => municipios.map((m) => ({ valor: m.id, etiqueta: m.nombre })), [municipios]);
 
-  const campos: Record<Exclude<Pestana, "datos" | "modelo">, { titulo: string; recurso: string; campos: Campo[]; descripcion?: string }> = {
+  const campos: Record<Exclude<Pestana, "datos" | "modelo" | "alertas">, { titulo: string; recurso: string; campos: Campo[]; descripcion?: string }> = {
     enfermedades: {
       titulo: "Enfermedades", recurso: "enfermedades",
       descripcion: "Los umbrales son los percentiles del canal endémico que definen el semáforo.",
@@ -109,6 +110,7 @@ export default function AdminPage() {
     { id: "eventos", etiqueta: "Eventos volcánicos", icono: <Mountain size={15} /> },
     { id: "datos", etiqueta: "Fuentes de datos", icono: <Database size={15} /> },
     { id: "modelo", etiqueta: "Modelo", icono: <BrainCircuit size={15} /> },
+    { id: "alertas", etiqueta: "Alertas", icono: <BellRing size={15} /> },
   ];
 
   return (
@@ -127,7 +129,7 @@ export default function AdminPage() {
         ))}
       </div>
       <Card className="p-5">
-        {pestana === "datos" ? <PanelDatos /> : pestana === "modelo" ? <PanelModelo /> : <CrudTable key={pestana} {...campos[pestana]} />}
+        {pestana === "datos" ? <PanelDatos /> : pestana === "modelo" ? <PanelModelo /> : pestana === "alertas" ? <PanelAlertas /> : <CrudTable key={pestana} {...campos[pestana]} />}
       </Card>
     </div>
   );

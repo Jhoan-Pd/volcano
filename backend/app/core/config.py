@@ -60,6 +60,13 @@ class Settings(BaseSettings):
     TRENDS_CSV_DIR: str = "data/trends"
     TRENDS_PAUSA_SEGUNDOS: float = 2.0
 
+    # Alertas por correo con Resend (opcional; plan gratis: 100 correos/día). Sin API key no se envía nada.
+    RESEND_API_KEY: str | None = None
+    RESEND_URL: str = "https://api.resend.com/emails"
+    ALERTAS_EMAIL_REMITENTE: str = "Predictor de Brotes <onboarding@resend.dev>"
+    ALERTAS_EMAIL_DESTINO: str = ""  # correos separados por coma
+    FRONTEND_URL: str = "http://localhost:5173"
+
     @field_validator("DATABASE_URL")
     @classmethod
     def normalizar_url(cls, v: str) -> str:
@@ -74,6 +81,10 @@ class Settings(BaseSettings):
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip().rstrip("/") for o in self.CORS_ORIGINS.split(",") if o.strip()]
+
+    @property
+    def destinatarios_alertas(self) -> list[str]:
+        return [c.strip() for c in self.ALERTAS_EMAIL_DESTINO.split(",") if c.strip()]
 
     @property
     def es_sqlite(self) -> bool:
