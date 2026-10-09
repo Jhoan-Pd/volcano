@@ -69,14 +69,14 @@ export function ClimaActualCard({ c, municipio }: { c: ClimaActual | null; munic
   );
 }
 
-export function RiesgoMunicipiosTabla({ filas, enfermedades, onSeleccionar, seleccionado }: {
+export function RiesgoMunicipiosTabla({ filas, enfermedades, onSeleccionar, seleccionado, predicho = false }: {
   filas: RiesgoMunicipio[]; enfermedades: { codigo: string; nombre: string }[];
-  onSeleccionar: (id: number) => void; seleccionado: number | null;
+  onSeleccionar: (id: number) => void; seleccionado: number | null; predicho?: boolean;
 }) {
   const corto: Record<string, string> = { IRA: "IRA", EDA: "EDA", DENGUE: "Dengue", RESP_CENIZA: "Ceniza" };
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[440px] text-sm">
+      <table className="w-full min-w-[420px] text-sm">
         <thead>
           <tr className="border-b border-line text-left text-xs text-muted">
             <th className="px-4 py-2 font-medium">Municipio</th>
@@ -89,7 +89,9 @@ export function RiesgoMunicipiosTabla({ filas, enfermedades, onSeleccionar, sele
               className={`cursor-pointer border-b border-line/70 last:border-0 hover:bg-surface-2 ${seleccionado === f.municipio_id ? "bg-surface-2" : ""}`}>
               <td className="px-4 py-2.5 font-medium">{f.municipio}</td>
               {enfermedades.map((e) => (
-                <td key={e.codigo} className="px-1.5 py-2.5"><NivelChip nivel={(f.detalle[e.codigo] ?? "VERDE") as Nivel} /></td>
+                <td key={e.codigo} className="px-1.5 py-2.5">
+                  <NivelChip nivel={((predicho ? f.detalle_predicho : f.detalle)[e.codigo] ?? "VERDE") as Nivel} />
+                </td>
               ))}
             </tr>
           ))}
