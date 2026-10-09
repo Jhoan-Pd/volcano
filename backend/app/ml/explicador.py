@@ -28,6 +28,16 @@ def contribuciones(modelo, x: pd.DataFrame, medianas: dict) -> tuple[float, dict
     return base, salida
 
 
+NOMBRES_CATEGORIA = {
+    "ANTIGRIPALES": "antigripales", "ANTIPIRETICOS": "antipiréticos", "SALES_REHIDRATACION": "sales de rehidratación",
+    "INHALADORES": "inhaladores", "TAPABOCAS": "tapabocas", "REPELENTES": "repelentes",
+}
+
+
+def _num(v: float, dec: int = 1) -> str:
+    return f"{v:.{dec}f}".replace(".", ",")
+
+
 def _pct(v: float | None) -> str:
     return f"{'+' if v >= 0 else '−'}{abs(v):.0f} %"
 
@@ -44,20 +54,21 @@ def señales(fila: pd.Series, medianas: dict, terminos: list[str], categorias: l
         if media > 0.5:
             cambio = (actual / media - 1) * 100
             m["Casos recientes"] = (f"Los casos de la última semana ({actual:.0f}) están {_pct(cambio)} frente al "
-                                    f"promedio de las 8 semanas anteriores ({media:.1f}).")
+                                    f"promedio de las 8 semanas anteriores ({_num(media)}).")
     if _ok(fila.get("busq_var")):
         cambio = (fila["busq_var"] - 1) * 100
         m["Búsquedas en internet"] = (f"Las búsquedas en internet de «{', '.join(terminos)}» en Nariño están "
                                       f"{_pct(cambio)} respecto a su nivel habitual.")
     if _ok(fila.get("farm_l0")):
         cambio = fila["farm_l0"] - 100
-        nombres = ", ".join(c.replace("_", " ").lower() for c in categorias) or "productos asociados"
+        nombres = ", ".join(NOMBRES_CATEGORIA.get(c, c.lower()) for c in categorias) or "productos asociados"
         m["Ventas en farmacias"] = f"Las ventas de {nombres} en las farmacias del municipio están {_pct(cambio)} de lo normal."
     partes = []
     if _ok(fila.get("lluvia_l2_6")) and _ok(medianas.get("lluvia_l2_6")) and medianas["lluvia_l2_6"] > 0:
         partes.append(f"lluvia de las semanas previas {_pct((fila['lluvia_l2_6'] / medianas['lluvia_l2_6'] - 1) * 100)}")
     if _ok(fila.get("temp_l0")) and _ok(medianas.get("temp_l0")):
-        partes.append(f"temperatura {fila['temp_l0'] - medianas['temp_l0']:+.1f} °C")
+        partes.append(f"temperatura {'+' if fila['temp_l0'] >= medianas['temp_l0'] else '−'}"
+                      f"{_num(abs(fila['temp_l0'] - medianas['temp_l0']))} °C")
     if partes:
         m["Clima"] = "Frente a lo típico: " + ", ".join(partes) + "."
     if _ok(fila.get("ceniza_l0_1")) and fila["ceniza_l0_1"] > 0:
@@ -69,7 +80,7 @@ def señales(fila: pd.Series, medianas: dict, terminos: list[str], categorias: l
             m["Actividad volcánica"] = f"La emisión de SO₂ del Galeras está {_pct(cambio)} frente a su mediana."
     if _ok(fila.get("y_anio_ant")):
         m["Estacionalidad"] = (f"En estas mismas semanas del año pasado hubo en promedio "
-                               f"{math.expm1(fila['y_anio_ant']):.1f} casos por semana.")
+                               f"{_num(math.expm1(fila['y_anio_ant']))} casos por semana.")
     return m
 
 
