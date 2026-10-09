@@ -15,4 +15,4 @@ Formatos aceptados:
 con `python -m app.seed.exportar_trends`. Sirve para que el sistema funcione sin internet;
 reemplázalo por exportaciones reales cuando las tengas.
 
-También puedes subir estos archivos desde *Administración → Datos y modelo → Importar CSV*.
+En formato largo también puedes subirlos desde *Administración → Fuentes de datos → Carga de CSV* (tipo «Búsquedas»).
