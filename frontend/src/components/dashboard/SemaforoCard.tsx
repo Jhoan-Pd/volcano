@@ -1,5 +1,5 @@
 import { Minus, TrendingDown, TrendingUp } from "lucide-react";
-import type { RiesgoEnfermedad } from "../../api/tipos";
+import type { Nivel, RiesgoEnfermedad } from "../../api/tipos";
 import { fmtNum, NIVELES } from "../../lib/formato";
 import { NivelChip } from "../ui";
 
@@ -60,6 +60,23 @@ export default function SemaforoCard({ r, activo, onClick }: { r: RiesgoEnfermed
       </div>
       <p className="mt-0.5 text-xs text-muted">{fmtNum(r.tasa_x_100k, 1)} por 100.000 hab.</p>
       <BarraCanal r={r} />
+      <div className="mt-4 border-t border-line pt-3">
+        {r.prediccion ? (
+          <>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-medium uppercase tracking-wide text-muted">Próximas 4 semanas</span>
+              <NivelChip nivel={r.prediccion.nivel_max as Nivel} />
+            </div>
+            <p className="mt-1 text-xs text-ink-2 tabular">
+              S{r.semana_epi + 1 > 53 ? 1 : r.semana_epi + 1}: {fmtNum(r.prediccion.casos_esperados_h1, r.prediccion.casos_esperados_h1 < 10 ? 1 : 0)} casos
+              <span className="text-muted"> ({fmtNum(r.prediccion.limite_inferior_h1, 0)}–{fmtNum(r.prediccion.limite_superior_h1, 0)})</span>
+              {r.prediccion.nivel_max !== "VERDE" && <> · pico {r.prediccion.semana_pico.replace(/^\d+-/, "")}</>}
+            </p>
+          </>
+        ) : (
+          <p className="text-[11px] text-muted">Predicción pendiente: el modelo aún no se ha entrenado.</p>
+        )}
+      </div>
     </button>
   );
 }

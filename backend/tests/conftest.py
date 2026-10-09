@@ -10,6 +10,7 @@ os.environ["CRON_SECRET"] = "cron-de-pruebas"
 os.environ["ADMIN_EMAIL"] = "admin@test.co"
 os.environ["ADMIN_PASSWORD"] = "Admin1234"
 os.environ["DEMO_PASSWORD"] = "Demo12345"
+os.environ["ENTRENAR_AL_INICIO"] = "false"
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

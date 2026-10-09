@@ -22,7 +22,8 @@ class ModeloEntrenado(TimestampMixin, Base):
     n_muestras: Mapped[int | None] = mapped_column(Integer)
     importancias: Mapped[dict | None] = mapped_column(JSON)
     parametros: Mapped[dict | None] = mapped_column(JSON)
-    artefacto: Mapped[bytes | None] = mapped_column(LargeBinary)  # modelo serializado (joblib)
+    # Modelo serializado (joblib). deferred: no se descarga cada vez que se consulta el modelo
+    artefacto: Mapped[bytes | None] = mapped_column(LargeBinary, deferred=True)
     activo: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
 

@@ -4,6 +4,7 @@ Uso (desde backend/):
     python -m app.seed            # carga lo que falte (seguro de repetir; Render lo ejecuta en cada arranque)
     python -m app.seed --reset    # BORRA todos los datos y vuelve a cargar
     python -m app.seed --sin-red  # no intenta Open-Meteo (clima 100 % simulado, útil sin internet)
+    python -m app.seed --entrenar # además entrena los modelos y genera predicciones (≈1 min en local)
 """
 import argparse
 import csv
@@ -261,6 +262,7 @@ def main() -> None:
     p = argparse.ArgumentParser(description="Carga datos iniciales")
     p.add_argument("--reset", action="store_true", help="borra todos los datos antes de cargar")
     p.add_argument("--sin-red", action="store_true", help="no consultar Open-Meteo")
+    p.add_argument("--entrenar", action="store_true", help="entrenar modelos y generar predicciones")
     args = p.parse_args()
 
     t0 = time.time()
@@ -277,6 +279,11 @@ def main() -> None:
             seed_casos(db, clima, so2, ceniza)
         seed_tendencias(db)
         seed_reportes_farmacia(db)
+        if args.entrenar:
+            from app.services.prediccion_service import PrediccionService
+
+            modelos, errores = PrediccionService(db).entrenar()
+            log.info("Modelos entrenados: %d %s", len(modelos), errores or "")
     log.info("Seed completo en %.1fs", time.time() - t0)
 
 

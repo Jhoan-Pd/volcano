@@ -4,7 +4,9 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.schemas.dashboard import EstadoVolcan, ResumenDashboard, RiesgoMunicipio, SerieEnfermedad
+from app.schemas.modelo import ExplicacionPrediccion, PrediccionEnfermedad
 from app.services.dashboard_service import DashboardService
+from app.services.prediccion_service import PrediccionService
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard público"])
 
@@ -29,3 +31,15 @@ def riesgo_municipios(db: Session = Depends(get_db)):
 @router.get("/volcan", response_model=EstadoVolcan, summary="Estado actual del Volcán Galeras")
 def volcan(db: Session = Depends(get_db)):
     return DashboardService(db).estado_volcan()
+
+
+@router.get("/prediccion", response_model=PrediccionEnfermedad,
+            summary="Casos esperados de las próximas 4 semanas con intervalo del 80 % y nivel de riesgo")
+def prediccion(municipio_id: int, enfermedad_id: int, db: Session = Depends(get_db)):
+    return PrediccionService(db).prediccion(municipio_id, enfermedad_id)
+
+
+@router.get("/explicacion", response_model=ExplicacionPrediccion, summary="¿Por qué subió el riesgo? (explicabilidad)")
+def explicacion(municipio_id: int, enfermedad_id: int, horizonte: int | None = Query(None, ge=1, le=4),
+                db: Session = Depends(get_db)):
+    return PrediccionService(db).explicacion(municipio_id, enfermedad_id, horizonte)

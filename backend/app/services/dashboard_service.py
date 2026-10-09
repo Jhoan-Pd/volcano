@@ -14,6 +14,7 @@ from app.schemas.dashboard import (
     SerieEnfermedad, Umbrales,
 )
 from app.services import riesgo_service as rs
+from app.services.prediccion_service import PrediccionService
 
 
 class DashboardService:
@@ -23,6 +24,7 @@ class DashboardService:
         self.enfermedades = EnfermedadRepository(db)
         self.casos = CasoOficialRepository(db)
         self.eventos = EventoVolcanicoRepository(db)
+        self.predicciones = PrediccionService(db)
 
     # ── utilidades ──────────────────────────────────────────────────────────
     def _municipio(self, municipio_id: int | None) -> Municipio:
@@ -72,6 +74,7 @@ class DashboardService:
             else Umbrales(amarillo=0, naranja=0, rojo=0),
             nivel=nivel.value, es_simulado=simulado,
             recomendaciones=[r.strip() for r in (enf.recomendaciones or "").splitlines() if r.strip()],
+            prediccion=self.predicciones.resumen(m.id, enf.id),
         )
 
     def estado_volcan(self, hoy: date | None = None) -> EstadoVolcan:
@@ -127,10 +130,14 @@ class DashboardService:
         enfermedades = self.enfermedades.activas()
         salida = []
         for m in self.municipios.activos():
-            detalle = {e.codigo: self.riesgo_enfermedad(m, e, anio, semana).nivel for e in enfermedades}
+            riesgos = [self.riesgo_enfermedad(m, e, anio, semana) for e in enfermedades]
+            detalle = {r.codigo: r.nivel for r in riesgos}
+            predicho = {r.codigo: r.prediccion.nivel_max for r in riesgos if r.prediccion}
             salida.append(RiesgoMunicipio(
                 municipio_id=m.id, municipio=m.nombre, codigo_divipola=m.codigo_divipola,
                 latitud=m.latitud, longitud=m.longitud,
                 nivel_max=rs.nivel_maximo(list(detalle.values())), detalle=detalle,
+                nivel_max_predicho=rs.nivel_maximo(list(predicho.values())) if predicho else None,
+                detalle_predicho=predicho,
             ))
         return salida

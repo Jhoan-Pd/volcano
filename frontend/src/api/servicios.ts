@@ -2,6 +2,7 @@ import { api } from "./cliente";
 import type {
   ClimaActual, ClimaDiario, Pagina, ResumenDashboard, RiesgoMunicipio, SerieEnfermedad, Usuario,
   Municipio, Enfermedad, Categoria, Farmacia, MiFarmacia, ReporteSemanal,
+  PrediccionEnfermedad, ExplicacionPrediccion, ModeloEntrenado, EstadoEntrenamiento,
 } from "./tipos";
 
 export const authApi = {
@@ -26,6 +27,24 @@ export const dashboardApi = {
       params: { municipio_id: municipioId, enfermedad_id: enfermedadId, semanas },
     })).data,
   riesgoMunicipios: async () => (await api.get<RiesgoMunicipio[]>("/dashboard/riesgo-municipios")).data,
+  prediccion: async (municipioId: number, enfermedadId: number) =>
+    (await api.get<PrediccionEnfermedad>("/dashboard/prediccion", {
+      params: { municipio_id: municipioId, enfermedad_id: enfermedadId },
+    })).data,
+  explicacion: async (municipioId: number, enfermedadId: number, horizonte?: number) =>
+    (await api.get<ExplicacionPrediccion>("/dashboard/explicacion", {
+      params: { municipio_id: municipioId, enfermedad_id: enfermedadId, horizonte },
+    })).data,
+};
+
+/** Modelo predictivo (Fase 2): reentrenar y estado solo ADMIN; historial público. */
+export const modeloApi = {
+  reentrenar: async (enfermedadId?: number) =>
+    (await api.post<EstadoEntrenamiento>("/modelo/reentrenar", null, { params: { enfermedad_id: enfermedadId } })).data,
+  estado: async () => (await api.get<EstadoEntrenamiento>("/modelo/estado")).data,
+  predecir: async () => (await api.post<{ predicciones: number }>("/modelo/predecir")).data,
+  historial: async (enfermedadId?: number, limite = 50) =>
+    (await api.get<ModeloEntrenado[]>("/modelo/historial", { params: { enfermedad_id: enfermedadId, limite } })).data,
 };
 
 export const climaApi = {
