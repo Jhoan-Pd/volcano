@@ -368,3 +368,31 @@ export interface EstadoFuente {
   ultima_semana: string | null;
   ultima_actualizacion: string | null;
 }
+
+// ── Fase 3: alertas ───────────────────────────────────────────────────────────
+export interface Alerta {
+  id: number;
+  municipio_id: number;
+  municipio: string;
+  enfermedad_id: number;
+  enfermedad: string;
+  codigo_enfermedad: string;
+  anio: number;
+  semana_epi: number;
+  etiqueta: string;
+  nivel_riesgo: Nivel;
+  origen: "OBSERVADO" | "PREDICHO";
+  mensaje: string;
+  activa: boolean;
+  notificada_email: boolean;
+  creado_en: string;
+  cerrada_en: string | null;
+}
+
+export interface ResultadoEvaluacion {
+  nuevas: number;
+  actualizadas: number;
+  cerradas: number;
+  activas: number;
+  correos_enviados: number;
+}
