@@ -1,10 +1,11 @@
 """Fuentes de datos: sincronización manual (ADMIN) y consulta pública de las series."""
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, Path, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from app.core.deps import solo_admin
 from app.db.session import get_db
-from app.schemas.datos import ResultadoSivigila, ResultadoTendencias, SerieTendencia
+from app.schemas.datos import EstadoDatos, ResultadoImportacion, ResultadoSivigila, ResultadoTendencias, SerieTendencia
+from app.services.importacion_service import ImportacionService
 from app.services.sivigila_service import SivigilaService
 from app.services.tendencia_service import TendenciaService
 
@@ -30,3 +31,24 @@ def sincronizar_sivigila(desde_anio: int = Query(2020, ge=2007, le=2100), db: Se
     """Usa los códigos INS configurados en cada enfermedad (`codigos_sivigila`).
     Los datos oficiales reemplazan a los simulados de las mismas semanas."""
     return SivigilaService(db).sincronizar(desde_anio)
+
+
+@router.post("/importar/{tipo}", response_model=ResultadoImportacion, dependencies=[Depends(solo_admin)],
+             summary="Cargar un CSV de casos, clima, eventos volcánicos o búsquedas — solo ADMIN")
+async def importar_csv(tipo: str = Path(..., pattern="^(casos|clima|eventos|tendencias)$"),
+                       archivo: UploadFile = File(..., description="CSV con encabezados; separador , o ;"),
+                       db: Session = Depends(get_db)):
+    """Inserta o actualiza (no duplica). Las filas con error se informan con su número de línea.
+
+    - **casos**: `cod_divipola, enfermedad, anio, semana_epi, casos`
+    - **clima**: `cod_divipola, fecha, temp_max_c, temp_min_c, temp_media_c, precipitacion_mm, humedad_relativa_pct`
+    - **eventos**: `tipo, nivel_actividad, fecha_inicio, cod_divipola, intensidad_ceniza, so2_ton_dia, descripcion`
+    - **tendencias**: `termino, fecha_semana, indice`
+    """
+    return ImportacionService(db).importar(tipo, await archivo.read())
+
+
+@router.get("/estado", response_model=EstadoDatos, dependencies=[Depends(solo_admin)],
+            summary="Registros, datos simulados y última actualización de cada fuente — solo ADMIN")
+def estado(db: Session = Depends(get_db)):
+    return ImportacionService(db).estado()
