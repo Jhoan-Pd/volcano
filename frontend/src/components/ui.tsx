@@ -38,7 +38,7 @@ export function NivelChip({ nivel, texto, grande = false }: { nivel: Nivel; text
   const Icono = ICONOS[nivel] ?? CircleCheck;
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full font-semibold ${grande ? "px-3 py-1 text-sm" : "px-2 py-0.5 text-xs"}`}
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full font-semibold ${grande ? "px-3 py-1 text-sm" : "px-2 py-0.5 text-xs"}`}
       style={{ color: n.tinta, background: `color-mix(in srgb, ${n.color} 16%, transparent)` }}
     >
       <Icono size={grande ? 16 : 13} strokeWidth={2.4} style={{ color: n.color }} aria-hidden />
