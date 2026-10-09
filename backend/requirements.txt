@@ -16,3 +16,6 @@ numpy==2.5.3
 pandas==3.0.6
 # Fase 2: Google Trends (no oficial; con caché en BD y respaldo CSV)
 pytrends==4.9.2
+# Fase 2: modelo predictivo
+scikit-learn==1.9.1
+joblib==1.6.0
