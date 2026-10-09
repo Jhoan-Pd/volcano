@@ -7,6 +7,7 @@ import type {
 } from "../api/tipos";
 import CanalEndemicoChart from "../components/dashboard/CanalEndemicoChart";
 import type { ModoMapa } from "../components/dashboard/MapaRiesgo";
+import MenuReportes from "../components/dashboard/MenuReportes";
 import PanelExplicacion from "../components/dashboard/PanelExplicacion";
 import { ClimaActualCard, Recomendaciones, RiesgoMunicipiosTabla, VolcanCard } from "../components/dashboard/Paneles";
 import PronosticoClima from "../components/dashboard/PronosticoClima";
@@ -106,12 +107,15 @@ export default function DashboardPage() {
             {resumen?.hay_datos_simulados && <SimuladoBadge />}
           </p>
         </div>
-        <label className="w-full md:w-64">
-          <span className="mb-1 flex items-center gap-1 text-xs font-medium text-ink-2"><MapPin size={13} /> Municipio</span>
-          <select className={claseInput} value={municipioId ?? ""} onChange={(e) => setMunicipioId(Number(e.target.value))}>
-            {municipios.map((m) => <option key={m.id} value={m.id}>{m.nombre}</option>)}
-          </select>
-        </label>
+        <div className="flex w-full items-end gap-2 md:w-auto">
+          <label className="min-w-0 flex-1 md:w-64 md:flex-none">
+            <span className="mb-1 flex items-center gap-1 text-xs font-medium text-ink-2"><MapPin size={13} /> Municipio</span>
+            <select className={claseInput} value={municipioId ?? ""} onChange={(e) => setMunicipioId(Number(e.target.value))}>
+              {municipios.map((m) => <option key={m.id} value={m.id}>{m.nombre}</option>)}
+            </select>
+          </label>
+          {municipioId != null && <MenuReportes municipioId={municipioId} municipio={municipio?.nombre ?? ""} enfermedadId={enfermedadId} />}
+        </div>
       </div>
 
       {/* Semáforo */}
