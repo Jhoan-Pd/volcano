@@ -2,15 +2,18 @@ import { Activity, CloudSun, Info, MapPin } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { mensajeError } from "../api/cliente";
 import { catalogoApi, climaApi, dashboardApi } from "../api/servicios";
-import type { ClimaActual, ClimaDiario, Municipio, ResumenDashboard, RiesgoMunicipio, SerieEnfermedad } from "../api/tipos";
+import type {
+  ClimaActual, ClimaDiario, Municipio, PrediccionEnfermedad, ResumenDashboard, RiesgoMunicipio, SerieEnfermedad,
+} from "../api/tipos";
 import CanalEndemicoChart from "../components/dashboard/CanalEndemicoChart";
 import { ClimaActualCard, Recomendaciones, RiesgoMunicipiosTabla, VolcanCard } from "../components/dashboard/Paneles";
 import PronosticoClima from "../components/dashboard/PronosticoClima";
 import SemaforoCard from "../components/dashboard/SemaforoCard";
 import { Aviso, Card, CardHeader, claseInput, SimuladoBadge, Spinner } from "../components/ui";
-import { fmtNum } from "../lib/formato";
+import { fmtFecha, fmtNum } from "../lib/formato";
 
 const RANGOS = [
+  { semanas: 26, etiqueta: "6 meses" },
   { semanas: 52, etiqueta: "1 año" },
   { semanas: 104, etiqueta: "2 años" },
   { semanas: 260, etiqueta: "5 años" },
@@ -21,8 +24,10 @@ export default function DashboardPage() {
   const [municipioId, setMunicipioId] = useState<number | null>(null);
   const [resumen, setResumen] = useState<ResumenDashboard | null>(null);
   const [enfermedadId, setEnfermedadId] = useState<number | null>(null);
-  const [semanas, setSemanas] = useState(104);
+  const [semanas, setSemanas] = useState(52);
   const [serie, setSerie] = useState<SerieEnfermedad | null>(null);
+  const [prediccion, setPrediccion] = useState<PrediccionEnfermedad | null>(null);
+  const [verValidacion, setVerValidacion] = useState(false);
   const [climaActual, setClimaActual] = useState<ClimaActual | null>(null);
   const [pronostico, setPronostico] = useState<ClimaDiario[] | null>(null);
   const [porMunicipio, setPorMunicipio] = useState<RiesgoMunicipio[]>([]);
@@ -59,6 +64,12 @@ export default function DashboardPage() {
     setSerie(null);
     dashboardApi.serie(municipioId, enfermedadId, semanas).then(setSerie).catch((e) => setError(mensajeError(e)));
   }, [municipioId, enfermedadId, semanas]);
+
+  useEffect(() => {
+    if (municipioId == null || enfermedadId == null) return;
+    setPrediccion(null);
+    dashboardApi.prediccion(municipioId, enfermedadId).then(setPrediccion).catch(() => setPrediccion(null));
+  }, [municipioId, enfermedadId]);
 
   const seleccionada = useMemo(() => resumen?.riesgos.find((r) => r.enfermedad_id === enfermedadId), [resumen, enfermedadId]);
   const municipio = municipios.find((m) => m.id === municipioId);
@@ -108,24 +119,32 @@ export default function DashboardPage() {
       {/* Histórico + volcán/clima */}
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="min-w-0 lg:col-span-2">
-          <CardHeader titulo={`Histórico y canal endémico · ${seleccionada?.nombre ?? ""}`} icono={<Activity size={17} />}
-            subtitulo="Casos semanales frente a los percentiles de los 5 años anteriores. Selecciona una enfermedad arriba."
+          <CardHeader titulo={`Histórico vs. predicción · ${seleccionada?.nombre ?? ""}`} icono={<Activity size={17} />}
+            subtitulo="Casos semanales sobre el canal endémico (percentiles de los 5 años anteriores) y casos esperados de las próximas 4 semanas."
             accion={
-              <div className="flex rounded-lg border border-line p-0.5 text-xs" role="group" aria-label="Rango de tiempo">
-                {RANGOS.map((r) => (
-                  <button key={r.semanas} onClick={() => setSemanas(r.semanas)} aria-pressed={semanas === r.semanas}
-                    className={`rounded-md px-2.5 py-1 font-medium ${semanas === r.semanas ? "bg-surface-2 text-ink" : "text-muted hover:text-ink"}`}>
-                    {r.etiqueta}
-                  </button>
-                ))}
+              <div className="flex flex-wrap items-center gap-2">
+                {prediccion && prediccion.backtest.length > 0 && (
+                  <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-ink-2">
+                    <input type="checkbox" className="accent-[var(--accent)]" checked={verValidacion}
+                      onChange={(e) => setVerValidacion(e.target.checked)} />
+                    Validación
+                  </label>
+                )}
+                <div className="flex rounded-lg border border-line p-0.5 text-xs" role="group" aria-label="Rango de tiempo">
+                  {RANGOS.map((r) => (
+                    <button key={r.semanas} onClick={() => setSemanas(r.semanas)} aria-pressed={semanas === r.semanas}
+                      className={`rounded-md px-2.5 py-1 font-medium ${semanas === r.semanas ? "bg-surface-2 text-ink" : "text-muted hover:text-ink"}`}>
+                      {r.etiqueta}
+                    </button>
+                  ))}
+                </div>
               </div>
             } />
           <div className="px-3 pb-4 sm:px-5">
-            {serie && seleccionada ? <CanalEndemicoChart puntos={serie.puntos} color={seleccionada.color} /> : <Spinner />}
-            <p className="mt-3 flex items-start gap-1.5 text-xs text-muted">
-              <Info size={13} className="mt-0.5 shrink-0" />
-              En la Fase 2 se agrega la predicción de las próximas 4 semanas (Random Forest/Gradient Boosting) con su intervalo.
-            </p>
+            {serie && seleccionada
+              ? <CanalEndemicoChart puntos={serie.puntos} color={seleccionada.color} prediccion={prediccion} mostrarValidacion={verValidacion} />
+              : <Spinner />}
+            <ResumenModelo prediccion={prediccion} />
           </div>
         </Card>
         <div className="min-w-0 space-y-6">
@@ -162,5 +181,31 @@ export default function DashboardPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+/** Línea de métricas del modelo: así el ciudadano ve qué tan confiable es la predicción. */
+function ResumenModelo({ prediccion }: { prediccion: PrediccionEnfermedad | null }) {
+  const m = prediccion?.modelo;
+  if (!m) {
+    return (
+      <p className="mt-3 flex items-start gap-1.5 text-xs text-muted">
+        <Info size={13} className="mt-0.5 shrink-0" />
+        Aún no hay un modelo entrenado para esta enfermedad. Un administrador puede entrenarlo desde el panel.
+      </p>
+    );
+  }
+  const mejora = m.mae_base && m.mae_modelo != null ? (1 - m.mae_modelo / m.mae_base) * 100 : null;
+  return (
+    <p className="mt-3 flex items-start gap-1.5 text-xs text-muted">
+      <Info size={13} className="mt-0.5 shrink-0" />
+      <span>
+        Modelo <b className="font-medium text-ink-2">{m.algoritmo}</b> entrenado el {fmtFecha(m.fecha_entrenamiento)}.
+        Error medio (MAE) <span className="tabular">{fmtNum(m.mae_modelo, 2)}</span> casos/semana frente a{" "}
+        <span className="tabular">{fmtNum(m.mae_base, 2)}</span> del promedio móvil
+        {mejora != null && <> ({mejora >= 0 ? "−" : "+"}{fmtNum(Math.abs(mejora), 0)} %)</>}.
+        El intervalo cubre el 80 % de los errores observados en validación.
+      </span>
+    </p>
   );
 }
