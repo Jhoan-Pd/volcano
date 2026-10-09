@@ -51,6 +51,9 @@ class Settings(BaseSettings):
     SOCRATA_APP_TOKEN: str | None = None  # opcional: sube el límite de peticiones
     SIVIGILA_DEPARTAMENTO: str = "52"  # Nariño
 
+    # Modelo predictivo: si no hay modelos entrenados, entrenarlos en segundo plano al arrancar
+    ENTRENAR_AL_INICIO: bool = True
+
     # Google Trends (pytrends no es oficial: puede fallar o bloquearse; hay caché en BD y CSV de respaldo)
     TRENDS_HABILITADO: bool = True
     TRENDS_REGION: str = "CO-NAR"
