@@ -46,14 +46,18 @@ export default function BannerAlertas() {
                background: `color-mix(in srgb, ${NIVELES[nivel].color} 9%, var(--page))` }}>
       <div className="mx-auto max-w-7xl px-4 py-2.5 sm:px-6">
         <div className="flex items-center gap-3">
-          <NivelChip nivel={nivel} texto={hayRojo ? "Alerta: riesgo muy alto" : "Alerta: riesgo alto"} />
+          <span className="hidden sm:inline-flex">
+            <NivelChip nivel={nivel} texto={hayRojo ? "Alerta: riesgo muy alto" : "Alerta: riesgo alto"} />
+          </span>
+          <span className="sm:hidden"><NivelChip nivel={nivel} texto={hayRojo ? "Muy alto" : "Alto"} /></span>
           <p className="min-w-0 flex-1 truncate text-sm text-ink">
             <b className="font-semibold">{alertas.length} alerta{alertas.length > 1 ? "s" : ""} temprana{alertas.length > 1 ? "s" : ""}</b>
             <span className="text-ink-2"> en {municipios.join(", ")}</span>
           </p>
           <button onClick={() => setAbierto((v) => !v)} aria-expanded={abierto}
             className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-ink-2 hover:bg-surface-2">
-            {abierto ? "Ocultar detalle" : "Ver detalle"}
+            <span className="hidden sm:inline">{abierto ? "Ocultar detalle" : "Ver detalle"}</span>
+            <span className="sm:hidden">{abierto ? "Ocultar" : "Ver"}</span>
             <ChevronDown size={14} className={`transition ${abierto ? "rotate-180" : ""}`} />
           </button>
           <button onClick={ocultar} className="shrink-0 rounded-md p-1 text-muted hover:bg-surface-2" aria-label="Ocultar alertas">
