@@ -114,4 +114,5 @@ CENIZA_SIMULADA = [
     ("2024-02-12", ["La Florida", "Sandoná"], 1),
     ("2024-10-28", ["Consacá", "Yacuanquer", "Pasto"], 2),
     ("2025-07-09", ["Sandoná", "La Florida"], 1),
+    ("2026-03-11", ["Consacá", "Sandoná"], 2),
 ]
