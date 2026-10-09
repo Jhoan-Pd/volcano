@@ -197,15 +197,15 @@ export default function DashboardPage() {
             </div>
           } />
         {porMunicipio.length === 0 ? <Spinner /> : (
-          <div className="grid gap-4 px-5 pb-5 lg:grid-cols-5">
-            <div className="lg:col-span-3">
+          <div className="grid grid-cols-1 gap-4 px-5 pb-5 lg:grid-cols-5">
+            <div className="min-w-0 lg:col-span-3">
               <Suspense fallback={<Spinner texto="Cargando mapa…" />}>
                 <MapaRiesgo filas={porMunicipio} modo={modoMapa} codigo={codigoMapa} seleccionado={municipioId}
                   enfermedades={resumen?.riesgos.map((r) => ({ codigo: r.codigo, nombre: r.nombre })) ?? []}
                   onSeleccionar={(id) => { setMunicipioId(id); window.scrollTo({ top: 0, behavior: "smooth" }); }} />
               </Suspense>
             </div>
-            <div className="-mx-5 lg:col-span-2 lg:mx-0">
+            <div className="-mx-5 min-w-0 lg:col-span-2 lg:mx-0">
               <RiesgoMunicipiosTabla filas={porMunicipio} seleccionado={municipioId} predicho={modoMapa === "predicho"}
                 enfermedades={resumen?.riesgos.map((r) => ({ codigo: r.codigo, nombre: r.nombre })) ?? []}
                 onSeleccionar={(id) => { setMunicipioId(id); window.scrollTo({ top: 0, behavior: "smooth" }); }} />
