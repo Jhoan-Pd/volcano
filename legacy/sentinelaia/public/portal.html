@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SentinelaIA Nariño — Observatorio de Salud Pública</title>
+<style>
+/* =============================================
+   VARIABLES Y RESET
+   ============================================= */
+:root {
+  --rojo:       #E24B4A;
+  --amarillo:   #EF9F27;
+  --verde:      #1D9E75;
+  --azul-inst:  #003D7C;
+  --azul2:      #1D6FA8;
+  --azul-claro: #4A90D9;
+  --gris-bg:    #F0F2F5;
+  --gris-card:  #FFFFFF;
+  --gris-borde: #DDE3ED;
+  --texto:      #1A2340;
+  --texto-sub:  #5A6882;
+  --header-h:   64px;
+  --nav-h:      48px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--gris-bg); color: var(--texto); }
+
+/* =============================================
+   HEADER INSTITUCIONAL
+   ============================================= */
+header {
+  height: var(--header-h);
+  background: var(--azul-inst);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 32px;
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 200;
+  box-shadow: 0 2px 12px rgba(0,0,0,.25);
+}
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.logo-escudo {
+  width: 42px; height: 42px;
+  background: linear-gradient(135deg,#FFD700,#FF8C00);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,.3);
+}
+.header-brand h1 {
+  font-size: 17px; font-weight: 800; color: #fff;
+  letter-spacing: .01em; line-height: 1.2;
+}
+.header-brand p {
+  font-size: 11px; color: rgba(255,255,255,.65);
+  font-weight: 400;
+}
+.header-divider {
+  width: 1px; height: 36px;
+  background: rgba(255,255,255,.2);
+}
+.header-dep {
+  font-size: 12px; color: rgba(255,255,255,.75);
+  line-height: 1.4;
+}
+.header-dep strong { color: #fff; font-size: 13px; display: block; }
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.badge-concurso {
+  background: linear-gradient(135deg,#EF9F27,#E24B4A);
+  color: #fff; font-size: 10px; font-weight: 700;
+  padding: 4px 10px; border-radius: 20px;
+  text-transform: uppercase; letter-spacing: .06em;
+}
+.badge-live {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 11px; color: rgba(255,255,255,.7);
+}
+.dot-live {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #2ECC71;
+  animation: pulse-dot 1.6s infinite;
+}
+@keyframes pulse-dot {
+  0%,100% { opacity:1; transform: scale(1); }
+  50% { opacity:.5; transform: scale(.75); }
+}
+.header-time { font-size: 11px; color: rgba(255,255,255,.55); }
+
+/* =============================================
+   BARRA DE NAVEGACIÓN TEMÁTICA
+   ============================================= */
+nav.topnav {
+  position: fixed;
+  top: var(--header-h);
+  left: 0; right: 0;
+  height: var(--nav-h);
+  background: #fff;
+  border-bottom: 2px solid var(--gris-borde);
+  display: flex;
+  align-items: stretch;
+  padding: 0 32px;
+  z-index: 190;
+  gap: 0;
+  overflow-x: auto;
+}
+.nav-tab {
+  display: flex; align-items: center; gap: 7px;
+  padding: 0 20px;
+  font-size: 13px; font-weight: 600;
+  color: var(--texto-sub);
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  white-space: nowrap;
+  transition: all .2s;
+  text-decoration: none;
+}
+.nav-tab:hover { color: var(--azul2); background: #F4F8FD; }
+.nav-tab.active { color: var(--azul-inst); border-bottom-color: var(--azul-inst); background: #F0F6FF; }
+.nav-tab .tab-icon { font-size: 15px; }
+.nav-sep { width: 1px; background: var(--gris-borde); margin: 10px 0; }
+
+/* =============================================
+   LAYOUT PRINCIPAL
+   ============================================= */
+.page-wrapper {
+  margin-top: calc(var(--header-h) + var(--nav-h));
+  min-height: calc(100vh - var(--header-h) - var(--nav-h));
+  display: flex;
+  flex-direction: column;
+}
+
+/* =============================================
+   BANDA DE ALERTA / CONTEXTO
+   ============================================= */
+.alert-band {
+  background: linear-gradient(90deg, #FFF8E1, #FFFDE7);
+  border-bottom: 1px solid #F0C030;
+  padding: 8px 32px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+  color: #7A5500;
+}
+.alert-band strong { color: #5A3C00; }
+
+/* =============================================
+   KPI STRIP
+   ============================================= */
+.kpi-strip {
+  background: var(--azul-inst);
+  padding: 14px 32px;
+  display: flex;
+  gap: 0;
+  align-items: stretch;
+}
+.kpi-item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 24px;
+  border-right: 1px solid rgba(255,255,255,.15);
+}
+.kpi-item:last-child { border-right: none; }
+.kpi-icon-circle {
+  width: 40px; height: 40px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0;
+}
+.kpi-icon-circle.rojo { background: rgba(226,75,74,.25); }
+.kpi-icon-circle.amarillo { background: rgba(239,159,39,.25); }
+.kpi-icon-circle.verde { background: rgba(29,158,117,.25); }
+.kpi-icon-circle.azul { background: rgba(74,144,217,.25); }
+.kpi-text-label { font-size: 10px; color: rgba(255,255,255,.6); text-transform: uppercase; letter-spacing: .06em; }
+.kpi-text-value { font-size: 22px; font-weight: 800; color: #fff; line-height: 1.1; }
+.kpi-text-sub { font-size: 10px; color: rgba(255,255,255,.5); }
+
+/* =============================================
+   CONTENIDO CENTRAL
+   ============================================= */
+.main-content {
+  display: flex;
+  flex: 1;
+  gap: 0;
+}
+
+/* Panel lateral izquierdo */
+.sidebar-left {
+  width: 250px;
+  flex-shrink: 0;
+  background: #fff;
+  border-right: 1px solid var(--gris-borde);
+  display: flex;
+  flex-direction: column;
+  padding: 20px 0;
+}
+.sidebar-section-title {
+  font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .08em;
+  color: var(--texto-sub);
+  padding: 0 18px 8px;
+  border-bottom: 1px solid var(--gris-borde);
+  margin-bottom: 8px;
+}
+.sidebar-menu-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 18px;
+  font-size: 13px; color: var(--texto-sub);
+  cursor: pointer; transition: all .18s;
+  border-left: 3px solid transparent;
+}
+.sidebar-menu-item:hover { background: #F4F8FD; color: var(--azul2); }
+.sidebar-menu-item.active {
+  background: #EBF3FF; color: var(--azul-inst);
+  border-left-color: var(--azul-inst); font-weight: 600;
+}
+.sidebar-menu-item .si-icon { font-size: 16px; width: 20px; text-align: center; }
+
+.sidebar-divider { height: 1px; background: var(--gris-borde); margin: 10px 18px; }
+
+.sidebar-info-card {
+  margin: 12px 14px;
+  background: linear-gradient(135deg,#EBF3FF,#D8E8F8);
+  border-radius: 10px;
+  padding: 14px;
+  border: 1px solid #C0D8F0;
+}
+.sidebar-info-card h4 { font-size: 12px; color: var(--azul-inst); font-weight: 700; margin-bottom: 6px; }
+.sidebar-info-card p { font-size: 11px; color: #3A5070; line-height: 1.5; }
+.semaforo-row {
+  display: flex; align-items: center; gap: 7px;
+  padding: 6px 14px; font-size: 12px; color: var(--texto);
+}
+.dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.dot.rojo { background: var(--rojo); }
+.dot.amarillo { background: var(--amarillo); }
+.dot.verde { background: var(--verde); }
+
+/* Panel Power BI central */
+.pbi-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.pbi-toolbar {
+  background: #F8FAFD;
+  border-bottom: 1px solid var(--gris-borde);
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.pbi-toolbar-left { display: flex; align-items: center; gap: 8px; }
+.pbi-toolbar-title { font-size: 13px; font-weight: 700; color: var(--texto); }
+.pbi-toolbar-sub { font-size: 11px; color: var(--texto-sub); }
+.pbi-toolbar-right { display: flex; align-items: center; gap: 8px; }
+.toolbar-btn {
+  display: flex; align-items: center; gap: 5px;
+  padding: 5px 12px;
+  border: 1px solid var(--gris-borde);
+  border-radius: 6px;
+  background: #fff;
+  font-size: 12px; color: var(--texto-sub);
+  cursor: pointer; transition: all .15s;
+}
+.toolbar-btn:hover { background: var(--azul-inst); color: #fff; border-color: var(--azul-inst); }
+.toolbar-btn.primary { background: var(--azul-inst); color: #fff; border-color: var(--azul-inst); font-weight: 600; }
+.toolbar-btn.primary:hover { background: #002A5A; }
+.pbi-tag {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 11px; color: var(--azul2);
+  background: #EBF3FF; padding: 3px 10px;
+  border-radius: 20px; font-weight: 600;
+}
+
+.pbi-container {
+  flex: 1;
+  position: relative;
+  background: #E8EDF5;
+  min-height: 700px;
+}
+.pbi-container iframe {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  border: none;
+  display: block;
+}
+.pbi-loading {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  background: #E8EDF5;
+  z-index: 5;
+  pointer-events: none;
+  transition: opacity .5s;
+}
+.pbi-loading.hidden { opacity: 0; }
+.spinner {
+  width: 44px; height: 44px;
+  border: 4px solid rgba(0,61,124,.15);
+  border-top-color: var(--azul-inst);
+  border-radius: 50%;
+  animation: spin .9s linear infinite;
+  margin-bottom: 14px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.pbi-loading p { font-size: 13px; color: var(--texto-sub); }
+
+/* Panel lateral derecho */
+.sidebar-right {
+  width: 220px;
+  flex-shrink: 0;
+  background: #fff;
+  border-left: 1px solid var(--gris-borde);
+  display: flex;
+  flex-direction: column;
+  padding: 18px 0;
+  gap: 0;
+}
+.rhs-section { padding: 0 14px 14px; border-bottom: 1px solid var(--gris-borde); margin-bottom: 14px; }
+.rhs-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--texto-sub); margin-bottom: 10px; }
+
+.risk-card {
+  border-radius: 8px; padding: 10px 12px;
+  margin-bottom: 6px; display: flex;
+  align-items: center; justify-content: space-between;
+}
+.risk-card.alto { background: #FDEAEA; border-left: 3px solid var(--rojo); }
+.risk-card.medio { background: #FEF3E0; border-left: 3px solid var(--amarillo); }
+.risk-card.bajo { background: #E0F5ED; border-left: 3px solid var(--verde); }
+.risk-mun { font-size: 12px; font-weight: 600; }
+.risk-label {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 10px;
+}
+.alto .risk-label { background: var(--rojo); color: #fff; }
+.medio .risk-label { background: var(--amarillo); color: #fff; }
+.bajo .risk-label { background: var(--verde); color: #fff; }
+
+.stat-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #F0F2F5; font-size: 12px; }
+.stat-row:last-child { border: none; }
+.stat-label { color: var(--texto-sub); }
+.stat-value { font-weight: 700; color: var(--texto); }
+
+.volcano-mini {
+  background: linear-gradient(135deg,#1A2340,#2D3A5A);
+  border-radius: 10px; margin: 0 14px;
+  padding: 14px; color: #fff; text-align: center;
+}
+.volcano-mini .v-icon { font-size: 28px; margin-bottom: 4px; }
+.volcano-mini .v-label { font-size: 10px; opacity: .6; text-transform: uppercase; letter-spacing: .07em; }
+.volcano-mini .v-value { font-size: 20px; font-weight: 800; margin: 4px 0 2px; }
+.volcano-mini .v-sub { font-size: 10px; opacity: .5; }
+
+/* =============================================
+   FOOTER
+   ============================================= */
+footer {
+  background: var(--azul-inst);
+  color: rgba(255,255,255,.7);
+  padding: 18px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+footer .footer-left { display: flex; align-items: center; gap: 14px; }
+footer .footer-logo { font-size: 20px; }
+footer .footer-brand { font-size: 12px; color: #fff; font-weight: 700; }
+footer .footer-meta { font-size: 10px; opacity: .6; margin-top: 2px; }
+footer .footer-links { display: flex; gap: 16px; }
+footer .footer-links a { color: rgba(255,255,255,.6); text-decoration: none; font-size: 11px; }
+footer .footer-links a:hover { color: #fff; }
+footer .footer-right { text-align: right; }
+
+/* =============================================
+   RESPONSIVE
+   ============================================= */
+@media (max-width: 1100px) {
+  .sidebar-left { width: 200px; }
+  .sidebar-right { display: none; }
+}
+@media (max-width: 800px) {
+  .sidebar-left { display: none; }
+  .kpi-strip { flex-wrap: wrap; gap: 12px; }
+  .kpi-item { flex: 1 1 45%; border: none; }
+  header { padding: 0 16px; }
+  nav.topnav { padding: 0 12px; }
+}
+
+/* =============================================
+   MEJORAS VISUALES
+   ============================================= */
+
+/* Pulse animado para municipios en riesgo alto */
+.dot.rojo {
+  box-shadow: 0 0 0 0 rgba(226,75,74,.7);
+  animation: pulse-rojo 2.2s infinite;
+}
+@keyframes pulse-rojo {
+  0%   { box-shadow: 0 0 0 0 rgba(226,75,74,.7); }
+  60%  { box-shadow: 0 0 0 8px rgba(226,75,74,0); }
+  100% { box-shadow: 0 0 0 0 rgba(226,75,74,0); }
+}
+
+/* Badge de tendencia en KPI strip */
+.kpi-trend {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 10px; font-weight: 700;
+  padding: 2px 8px; border-radius: 20px; margin-top: 6px;
+}
+.kpi-trend.up   { background: rgba(226,75,74,.25); color: #FF9090; }
+.kpi-trend.warn { background: rgba(239,159,39,.25); color: #FFCF60; }
+.kpi-trend.ok   { background: rgba(29,158,117,.25); color: #60E8B8; }
+
+/* Hover en risk cards */
+.risk-card { transition: transform .15s, box-shadow .15s; }
+.risk-card:hover { transform: translateX(3px); box-shadow: 3px 2px 12px rgba(0,0,0,.09); }
+
+/* Flecha de tendencia dentro de risk card */
+.risk-trend { font-size: 13px; margin-left: 3px; opacity: .75; }
+
+/* Resumen de riesgo en pills */
+.risk-summary { display: flex; gap: 5px; margin-bottom: 10px; flex-wrap: wrap; }
+.rpill { font-size: 10px; font-weight: 700; padding: 2px 9px; border-radius: 20px; }
+.rpill.alto  { background: #FDEAEA; color: var(--rojo); border: 1px solid #F5C0C0; }
+.rpill.medio { background: #FEF3E0; color: #A06000; border: 1px solid #F0D080; }
+.rpill.bajo  { background: #E0F5ED; color: #177A59; border: 1px solid #A0DFC0; }
+
+/* Barra de progreso semanal */
+.week-progress { height: 5px; background: var(--gris-borde); border-radius: 3px; margin-top: 8px; overflow: hidden; }
+.week-progress-fill {
+  height: 100%; border-radius: 3px;
+  background: linear-gradient(90deg, var(--azul-claro), var(--azul-inst));
+  animation: grow-bar 1.2s ease both;
+}
+@keyframes grow-bar {
+  from { width: 0; }
+  to   { width: 100%; }
+}
+
+/* Valor en alerta en stats */
+.stat-value.high { color: var(--rojo); font-weight: 800; }
+.stat-value.good { color: var(--verde); font-weight: 800; }
+
+/* Alert band con acento lateral */
+.alert-band { border-left: 4px solid #E6B800; }
+
+/* Shimmer suave en badge concurso */
+@keyframes badge-shine {
+  0%,100% { filter: brightness(1); }
+  50%     { filter: brightness(1.15); }
+}
+.badge-concurso { animation: badge-shine 3s ease-in-out infinite; }
+
+/* Transición en nav items */
+.nav-tab { transition: color .18s, background .18s, border-bottom-color .18s; }
+.sidebar-menu-item { transition: background .15s, color .15s, border-left-color .15s; }
+</style>
+</head>
+<body>
+
+<!-- ============================== HEADER ============================== -->
+<header>
+  <div class="header-left">
+    <div class="logo-escudo">🛡️</div>
+    <div class="header-brand">
+      <h1>SentinelaIA Nariño</h1>
+      <p>Sistema Predictivo de Alertas Tempranas · IRA / EDA</p>
+    </div>
+    <div class="header-divider"></div>
+    <div class="header-dep">
+      <strong>Gobernación de Nariño</strong>
+      Área de influencia Volcán Galeras
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="badge-concurso">📡 Datos al Ecosistema 2026</span>
+    <div class="badge-live"><div class="dot-live"></div> En vivo</div>
+    <div class="header-time" id="header-clock">—</div>
+  </div>
+</header>
+
+<!-- ============================== NAV TABS ============================== -->
+<nav class="topnav">
+  <a class="nav-tab active" onclick="setTab(this,'inicio')">
+    <span class="tab-icon">🏠</span> Inicio
+  </a>
+  <div class="nav-sep"></div>
+  <a class="nav-tab" onclick="setTab(this,'canal')">
+    <span class="tab-icon">📈</span> Canal Endémico
+  </a>
+  <div class="nav-sep"></div>
+  <a class="nav-tab" onclick="setTab(this,'municipal')">
+    <span class="tab-icon">🗺️</span> Comparativo Municipal
+  </a>
+  <div class="nav-sep"></div>
+  <a class="nav-tab" onclick="setTab(this,'galeras')">
+    <span class="tab-icon">🌋</span> Galeras &amp; SO₂
+  </a>
+  <div class="nav-sep"></div>
+  <a class="nav-tab" onclick="setTab(this,'ia')">
+    <span class="tab-icon">🤖</span> Predicción IA
+  </a>
+  <div class="nav-sep"></div>
+  <a class="nav-tab" onclick="setTab(this,'metodologia')" style="margin-left:auto;">
+    <span class="tab-icon">📋</span> Metodología
+  </a>
+</nav>
+
+<!-- ============================== ALERT BAND ============================== -->
+<div class="page-wrapper">
+  <div class="alert-band">
+    ⚠️ <strong>Alerta SE 52-2024:</strong> Pasto y Sandoná registran tasas de IRA sobre el percentil 75 del corredor histórico. Actividad volcánica Galeras: <strong>nivel III (cambios en comportamiento)</strong>. Actualización automática cada semana epidemiológica.
+  </div>
+
+  <!-- ============================== KPI STRIP ============================== -->
+  <div class="kpi-strip">
+    <div class="kpi-item">
+      <div class="kpi-icon-circle rojo">🩺</div>
+      <div>
+        <div class="kpi-text-label">Total Casos 2024</div>
+        <div class="kpi-text-value">54,976</div>
+        <div class="kpi-text-sub">IRA + EDA · 6 municipios</div>
+        <div class="kpi-trend up">↑ +8.3% vs 2023</div>
+      </div>
+    </div>
+    <div class="kpi-item">
+      <div class="kpi-icon-circle amarillo">📊</div>
+      <div>
+        <div class="kpi-text-label">Tasa Promedio</div>
+        <div class="kpi-text-value">17.54</div>
+        <div class="kpi-text-sub">por 100 000 habitantes</div>
+        <div class="kpi-trend warn">→ Estable SE 52</div>
+      </div>
+    </div>
+    <div class="kpi-item">
+      <div class="kpi-icon-circle rojo">🚨</div>
+      <div>
+        <div class="kpi-text-label">Municipios en Alerta</div>
+        <div class="kpi-text-value">6 / 6</div>
+        <div class="kpi-text-sub">Riesgo alto · SE 52</div>
+        <div class="kpi-trend up">⚠ Alerta máxima activa</div>
+      </div>
+    </div>
+    <div class="kpi-item">
+      <div class="kpi-icon-circle azul">🌋</div>
+      <div>
+        <div class="kpi-text-label">SO₂ Galeras</div>
+        <div class="kpi-text-value">512 t/d</div>
+        <div class="kpi-text-sub">Nivel III · actividad moderada</div>
+        <div class="kpi-trend up">↑ +67 t/d vs SE 51</div>
+      </div>
+    </div>
+    <div class="kpi-item">
+      <div class="kpi-icon-circle verde">🤖</div>
+      <div>
+        <div class="kpi-text-label">Precisión Modelo IA</div>
+        <div class="kpi-text-value">82.3%</div>
+        <div class="kpi-text-sub">XGBoost · CV 5-fold</div>
+        <div class="kpi-trend ok">✓ F1-score 0.81</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================== MAIN CONTENT ============================== -->
+  <div class="main-content">
+
+    <!-- SIDEBAR IZQUIERDO -->
+    <aside class="sidebar-left">
+      <div class="sidebar-section-title">Navegación del Reporte</div>
+
+      <div class="sidebar-menu-item active" id="menu-inicio" onclick="selectMenu(this)">
+        <span class="si-icon">🏠</span> Inicio / Resumen
+      </div>
+      <div class="sidebar-menu-item" id="menu-canal" onclick="selectMenu(this)">
+        <span class="si-icon">📈</span> Canal Endémico
+      </div>
+      <div class="sidebar-menu-item" id="menu-mun" onclick="selectMenu(this)">
+        <span class="si-icon">🗺️</span> Comparativo Municipal
+      </div>
+      <div class="sidebar-menu-item" id="menu-gal" onclick="selectMenu(this)">
+        <span class="si-icon">🌋</span> Galeras &amp; SO₂
+      </div>
+      <div class="sidebar-menu-item" id="menu-ia" onclick="selectMenu(this)">
+        <span class="si-icon">🤖</span> Predicción IA
+      </div>
+
+      <div class="sidebar-divider"></div>
+      <div class="sidebar-section-title">Semáforo de Riesgo</div>
+
+      <div class="semaforo-row"><div class="dot rojo"></div> <b>Pasto</b> — IRA Alto</div>
+      <div class="semaforo-row"><div class="dot rojo"></div> <b>Sandoná</b> — IRA Alto</div>
+      <div class="semaforo-row"><div class="dot amarillo"></div> <b>Consacá</b> — EDA Medio</div>
+      <div class="semaforo-row"><div class="dot amarillo"></div> <b>La Florida</b> — EDA Medio</div>
+      <div class="semaforo-row"><div class="dot verde"></div> <b>Yacuanquer</b> — Bajo</div>
+      <div class="semaforo-row"><div class="dot verde"></div> <b>Nariño</b> — Bajo</div>
+
+      <div class="sidebar-divider"></div>
+      <div class="sidebar-info-card">
+        <h4>🔬 Fuentes de Datos</h4>
+        <p>SIVIGILA · DANE · SGC Galeras · IDEAM · INS Colombia</p>
+      </div>
+    </aside>
+
+    <!-- PANEL POWER BI -->
+    <div class="pbi-panel">
+      <div class="pbi-toolbar">
+        <div class="pbi-toolbar-left">
+          <div>
+            <div class="pbi-toolbar-title" id="toolbar-title">📊 Reporte Interactivo — Inicio / Resumen General</div>
+            <div class="pbi-toolbar-sub">Use los filtros y la navegación de páginas dentro del reporte · SE 2020–2024</div>
+          </div>
+          <div class="pbi-tag">⚡ Power BI</div>
+        </div>
+        <div class="pbi-toolbar-right">
+          <button class="toolbar-btn" onclick="reloadPBI()" title="Recargar">🔄 Recargar</button>
+          <button class="toolbar-btn" onclick="toggleFullscreen()" title="Pantalla completa">⛶ Pantalla completa</button>
+          <a class="toolbar-btn" href="/" title="Volver al dashboard">← Dashboard</a>
+          <a class="toolbar-btn" href="https://sentinelaia-narino.streamlit.app" target="_blank" rel="noopener" title="Dashboard predictivo con IA (XGBoost)">🧠 Dashboard IA</a>
+          <a class="toolbar-btn primary" href="https://app.powerbi.com/view?r=eyJrIjoiOTRiYmE4MzMtY2U2OS00MzM5LTg5MWItMDhlMzY0YTM2ZmI5IiwidCI6IjhkMzY4MzZlLTZiNzUtNGRlNi1iYWI5LTVmNGIxNzc1NDI3ZiIsImMiOjR9" target="_blank">↗ Abrir en Power BI</a>
+        </div>
+      </div>
+
+      <div class="pbi-container" id="pbi-container">
+        <!-- Loading overlay -->
+        <div class="pbi-loading" id="pbi-loading">
+          <div class="spinner"></div>
+          <p>Cargando reporte Power BI…</p>
+        </div>
+        <!-- iframe Power BI Publish-to-Web -->
+        <iframe
+          id="pbi-frame"
+          src="https://app.powerbi.com/view?r=eyJrIjoiOTRiYmE4MzMtY2U2OS00MzM5LTg5MWItMDhlMzY0YTM2ZmI5IiwidCI6IjhkMzY4MzZlLTZiNzUtNGRlNi1iYWI5LTVmNGIxNzc1NDI3ZiIsImMiOjR9"
+          allowFullScreen="true"
+          onload="hidePBILoading()"
+          title="SentinelaIA Nariño — Dashboard Power BI">
+        </iframe>
+      </div>
+    </div>
+
+    <!-- SIDEBAR DERECHO -->
+    <aside class="sidebar-right">
+      <div class="rhs-section">
+        <div class="rhs-title">Alerta por Municipio (SE 52)</div>
+        <div class="risk-summary">
+          <span class="rpill alto">2 Alto</span>
+          <span class="rpill medio">2 Medio</span>
+          <span class="rpill bajo">2 Bajo</span>
+        </div>
+        <div class="risk-card alto">
+          <span class="risk-mun">Pasto <span class="risk-trend">↑</span></span>
+          <span class="risk-label">Alto</span>
+        </div>
+        <div class="risk-card alto">
+          <span class="risk-mun">Sandoná <span class="risk-trend">↑</span></span>
+          <span class="risk-label">Alto</span>
+        </div>
+        <div class="risk-card medio">
+          <span class="risk-mun">Consacá <span class="risk-trend">→</span></span>
+          <span class="risk-label">Medio</span>
+        </div>
+        <div class="risk-card medio">
+          <span class="risk-mun">La Florida <span class="risk-trend">→</span></span>
+          <span class="risk-label">Medio</span>
+        </div>
+        <div class="risk-card bajo">
+          <span class="risk-mun">Yacuanquer <span class="risk-trend">↓</span></span>
+          <span class="risk-label">Bajo</span>
+        </div>
+        <div class="risk-card bajo">
+          <span class="risk-mun">Nariño <span class="risk-trend">↓</span></span>
+          <span class="risk-label">Bajo</span>
+        </div>
+      </div>
+
+      <div class="rhs-section">
+        <div class="rhs-title">Estadísticas Rápidas</div>
+        <div class="stat-row"><span class="stat-label">Semana actual</span><span class="stat-value high">SE 52 / 52</span></div>
+        <div class="week-progress"><div class="week-progress-fill" style="width:100%"></div></div>
+        <div class="stat-row"><span class="stat-label">Año</span><span class="stat-value">2024</span></div>
+        <div class="stat-row"><span class="stat-label">Eventos</span><span class="stat-value">IRA · EDA</span></div>
+        <div class="stat-row"><span class="stat-label">Municipios</span><span class="stat-value">6</span></div>
+        <div class="stat-row"><span class="stat-label">Modelo</span><span class="stat-value">XGBoost</span></div>
+        <div class="stat-row"><span class="stat-label">F1-score</span><span class="stat-value good">0.81</span></div>
+      </div>
+
+      <div class="volcano-mini">
+        <div class="v-icon">🌋</div>
+        <div class="v-label">Volcán Galeras — SO₂</div>
+        <div class="v-value">512 t/día</div>
+        <div class="v-sub">Nivel III · SGC Colombia</div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ============================== FOOTER ============================== -->
+  <footer>
+    <div class="footer-left">
+      <div class="footer-logo">🛡️</div>
+      <div>
+        <div class="footer-brand">SentinelaIA Nariño</div>
+        <div class="footer-meta">Sistema predictivo de alertas tempranas IRA/EDA · Área de influencia Volcán Galeras</div>
+      </div>
+    </div>
+    <div class="footer-links">
+      <a href="#">Metodología</a>
+      <a href="https://www.datos.gov.co" target="_blank" rel="noopener">Fuentes</a>
+      <a href="https://github.com/Diego2004-max/BI_Health_Nari-o" target="_blank" rel="noopener">Repositorio GitHub</a>
+      <a href="https://www.mintic.gov.co" target="_blank" rel="noopener">MinTIC</a>
+    </div>
+    <div class="footer-right">
+      <div style="color:rgba(255,255,255,.8);font-size:11px;">Concurso Datos al Ecosistema 2026 · MinTIC</div>
+      <div style="color:rgba(255,255,255,.4);font-size:10px;margin-top:3px;">Gobernación de Nariño · Secretaría de Salud</div>
+    </div>
+  </footer>
+</div>
+
+<!-- ============================== SCRIPTS ============================== -->
+<script>
+// Reloj en tiempo real
+function updateClock() {
+  const now = new Date();
+  const opts = { timeZone:'America/Bogota', hour:'2-digit', minute:'2-digit', second:'2-digit',
+                 day:'2-digit', month:'short', year:'numeric' };
+  document.getElementById('header-clock').textContent =
+    now.toLocaleString('es-CO', opts) + ' COT';
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+// Ocultar loading overlay cuando el iframe carga
+function hidePBILoading() {
+  setTimeout(() => {
+    const el = document.getElementById('pbi-loading');
+    if (el) el.classList.add('hidden');
+    setTimeout(() => { if(el) el.style.display='none'; }, 600);
+  }, 800);
+}
+
+// Recargar iframe
+function reloadPBI() {
+  const frame = document.getElementById('pbi-frame');
+  const loading = document.getElementById('pbi-loading');
+  loading.style.display = 'flex';
+  loading.classList.remove('hidden');
+  frame.src = frame.src;
+}
+
+// Pantalla completa del contenedor PBI
+function toggleFullscreen() {
+  const container = document.getElementById('pbi-container');
+  if (!document.fullscreenElement) {
+    container.requestFullscreen().catch(() => {});
+  } else {
+    document.exitFullscreen();
+  }
+}
+
+// Navegación de tabs superiores
+const TAB_TITLES = {
+  inicio:      '📊 Reporte Interactivo — Inicio / Resumen General',
+  canal:       '📈 Reporte Interactivo — Canal Endémico · Corredor Histórico',
+  municipal:   '🗺️ Reporte Interactivo — Comparativo Municipal',
+  galeras:     '🌋 Reporte Interactivo — Galeras · Vigilancia SO₂',
+  ia:          '🤖 Reporte Interactivo — Predicción IA · XGBoost',
+  metodologia: '📋 Metodología · Fuentes y Modelo Predictivo',
+};
+function setTab(el, key) {
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  const t = document.getElementById('toolbar-title');
+  if (t) t.textContent = TAB_TITLES[key] || TAB_TITLES['inicio'];
+}
+
+// Menú lateral
+function selectMenu(el) {
+  document.querySelectorAll('.sidebar-menu-item').forEach(m => m.classList.remove('active'));
+  el.classList.add('active');
+}
+
+// Ajustar altura del panel PBI dinámicamente
+function adjustPBIHeight() {
+  const headerH = 64 + 48; // header + nav
+  const kpiH = document.querySelector('.kpi-strip').offsetHeight;
+  const alertH = document.querySelector('.alert-band').offsetHeight;
+  const toolbarH = document.querySelector('.pbi-toolbar').offsetHeight;
+  const footerH = document.querySelector('footer').offsetHeight;
+  const winH = window.innerHeight;
+  const avail = winH - headerH - kpiH - alertH - toolbarH - footerH - 20;
+  const container = document.getElementById('pbi-container');
+  container.style.minHeight = Math.max(500, avail) + 'px';
+}
+window.addEventListener('resize', adjustPBIHeight);
+window.addEventListener('load', adjustPBIHeight);
+setTimeout(adjustPBIHeight, 300);
+</script>
+</body>
+</html>

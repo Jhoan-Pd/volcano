@@ -1,0 +1,40 @@
+# Entorno virtual
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Jupyter
+.ipynb_checkpoints/
+
+# VS Code
+.vscode/
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Datos: ignorar contenido, pero conservar estructura
+data/raw/*
+!data/raw/.gitkeep
+
+data/processed/*
+!data/processed/.gitkeep
+
+data/final/*
+!data/final/.gitkeep
+!data/final/dataset_final_municipio_semana.csv
+!data/final/dataset_final_eda_municipio_semana.csv
+!data/final/predicciones_riesgo.csv
+
+# Temporales
+*.log
+*.tmp
+*.part
+
+# Vercel
+.vercel/

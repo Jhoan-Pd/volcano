@@ -1,0 +1,14 @@
+# Vercel solo debe publicar el portal estatico de public/.
+# Todo lo demas (pipeline Python, modelos, datos) se ignora para que
+# Vercel NO detecte este proyecto como una app Python y pida un entrypoint.
+src/
+data/
+docs/
+.streamlit/
+*.py
+requirements.txt
+image.png
+README.md
+.venv/
+venv/
+__pycache__/
