@@ -79,7 +79,7 @@ export default function Layout() {
       <footer className="border-t border-line">
         <div className="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-5 text-xs text-muted sm:flex-row sm:justify-between sm:px-6">
           <p>Proyecto académico · Programación Orientada a la Web · Nariño, Colombia</p>
-          <p>Fuentes: Open-Meteo · Servicio Geológico Colombiano · INS/SIVIGILA (datos.gov.co)</p>
+          <p>Fuentes: Open-Meteo · Google Trends · Servicio Geológico Colombiano · INS/SIVIGILA (datos.gov.co) · farmacias participantes</p>
         </div>
       </footer>
     </div>

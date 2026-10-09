@@ -32,3 +32,12 @@ services:
         sync: false
       - key: SEED_CLIMA_REAL
         value: "true"
+      - key: FRONTEND_URL
+        sync: false
+      # Alertas por correo (opcional): API key de https://resend.com y correos que reciben todas las alertas
+      - key: RESEND_API_KEY
+        sync: false
+      - key: ALERTAS_EMAIL_DESTINO
+        sync: false
+      - key: ENTRENAR_AL_INICIO
+        value: "true"
