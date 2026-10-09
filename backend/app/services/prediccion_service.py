@@ -33,6 +33,11 @@ from app.services.tendencia_service import terminos_de
 logger = logging.getLogger("predictor.modelo")
 
 
+def _num(v: float) -> str:
+    """Número con coma decimal, como se escribe en Colombia (118,5)."""
+    return f"{v:.1f}".replace(".", ",")
+
+
 def _lista(texto: str | None) -> list[str]:
     return [t.strip() for t in (texto or "").split(",") if t.strip()]
 
@@ -221,10 +226,10 @@ class PrediccionService:
         umbral = max(0.1, 0.05 * p.casos_esperados)
         suben = [f for f in factores if f.direccion == "sube" and f.contribucion >= umbral]
         if suben:
-            resumen = (f"Para la semana {etiqueta(p.anio, p.semana_epi)} se esperan {p.casos_esperados:.1f} casos. "
+            resumen = (f"Para la semana {etiqueta(p.anio, p.semana_epi)} se esperan {_num(p.casos_esperados)} casos. "
                        f"Lo que más empuja la predicción hacia arriba: {', '.join(f.grupo.lower() for f in suben[:3])}.")
         else:
-            resumen = (f"Para la semana {etiqueta(p.anio, p.semana_epi)} se esperan {p.casos_esperados:.1f} casos; "
+            resumen = (f"Para la semana {etiqueta(p.anio, p.semana_epi)} se esperan {_num(p.casos_esperados)} casos; "
                        "ninguna señal está por encima de su valor típico.")
         return ExplicacionPrediccion(
             municipio_id=muni.id, municipio=muni.nombre, enfermedad_id=enf.id, enfermedad=enf.nombre,
