@@ -59,7 +59,7 @@ Roles: `ADMIN`, `FARMACIA`, `CIUDADANO`. Los endpoints del dashboard son públic
 
 app = FastAPI(
     title=settings.APP_NAME,
-    version="2.0.0-fase2",
+    version="1.0.0",
     description=DESCRIPCION,
     docs_url="/docs",
     redoc_url="/redoc",

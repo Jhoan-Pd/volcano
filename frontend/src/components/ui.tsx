@@ -123,7 +123,7 @@ export function Etiqueta({ texto, children, ayuda }: { texto: string; children: 
 export function SimuladoBadge() {
   return (
     <span className="inline-flex items-center gap-1 rounded-full border border-dashed border-line px-2 py-0.5 text-[11px] font-medium text-muted"
-      title="Datos de prueba generados por el seed. Se reemplazan por datos oficiales en la Fase 2.">
+      title="Datos de prueba generados por el seed. Se reemplazan al sincronizar SIVIGILA o cargar un CSV con datos oficiales.">
       Datos simulados
     </span>
   );
