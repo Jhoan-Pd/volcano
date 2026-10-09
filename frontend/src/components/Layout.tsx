@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTema } from "../context/ThemeContext";
+import BannerAlertas from "./BannerAlertas";
 
 function Logo() {
   return (
@@ -69,6 +70,7 @@ export default function Layout() {
           </nav>
         </div>
       </header>
+      <BannerAlertas />
 
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6">
         <Outlet />
