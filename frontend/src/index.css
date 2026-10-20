@@ -168,7 +168,9 @@ body { transition: background-color 0.52s var(--ease-fondo), color 0.52s var(--e
 @keyframes subir { to { transform: translateY(0); } }
 
 /* Enlaces con texto que "rueda" hacia arriba al pasar el mouse */
-.rodar { position: relative; display: inline-block; overflow: hidden; vertical-align: top; line-height: 1.25; }
+/* Sin "display": lo decide quien la usa (p. ej. hidden sm:inline-block), porque este CSS
+   no está en una capa y ganaría a las utilidades de Tailwind */
+.rodar { position: relative; overflow: hidden; vertical-align: top; line-height: 1.25; }
 .rodar > span { display: block; transition: transform 0.5s var(--ease-salida); }
 .rodar > span::after { content: attr(data-texto); position: absolute; left: 0; top: 100%; }
 :where(a, button):hover > .rodar > span,
