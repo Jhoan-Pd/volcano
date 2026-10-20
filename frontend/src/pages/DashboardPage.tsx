@@ -9,6 +9,8 @@ import CanalEndemicoChart from "../components/dashboard/CanalEndemicoChart";
 import type { ModoMapa } from "../components/dashboard/MapaRiesgo";
 import MenuReportes from "../components/dashboard/MenuReportes";
 import PanelExplicacion from "../components/dashboard/PanelExplicacion";
+import Revelar from "../components/Revelar";
+import TituloRevelado from "../components/TituloRevelado";
 import { ClimaActualCard, Recomendaciones, RiesgoMunicipiosTabla, VolcanCard } from "../components/dashboard/Paneles";
 import PronosticoClima from "../components/dashboard/PronosticoClima";
 import SemaforoCard from "../components/dashboard/SemaforoCard";
@@ -98,9 +100,8 @@ export default function DashboardPage() {
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="titulo-seccion text-[13px] text-muted">Vigilancia epidemiológica temprana</p>
-          <h1 className="titulo-display mt-2 text-[2.6rem] sm:text-6xl lg:text-7xl">
-            Riesgo de brotes en {resumen?.municipio ?? municipio?.nombre ?? "…"}
-          </h1>
+          <TituloRevelado className="titulo-display mt-2 text-[2.6rem] sm:text-6xl lg:text-7xl"
+            texto={`Riesgo de brotes en ${resumen?.municipio ?? municipio?.nombre ?? "…"}`} />
           <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-ink-2">
             {resumen ? <>Semana epidemiológica <b className="tabular">{resumen.semana_referencia.replace("-S", " · S")}</b></> : "Cargando…"}
             {municipio && <span className="text-muted">· {fmtNum(municipio.poblacion)} hab. · {fmtNum(municipio.altitud_m)} m s. n. m.</span>}
@@ -121,12 +122,15 @@ export default function DashboardPage() {
       {/* Semáforo */}
       {!resumen ? <Spinner texto="Calculando riesgo…" /> : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {resumen.riesgos.map((r) => (
-            <SemaforoCard key={r.codigo} r={r} activo={r.enfermedad_id === enfermedadId} onClick={() => setEnfermedadId(r.enfermedad_id)} />
+          {resumen.riesgos.map((r, i) => (
+            <Revelar key={r.codigo} retraso={i * 80} className="flex">
+              <SemaforoCard r={r} activo={r.enfermedad_id === enfermedadId} onClick={() => setEnfermedadId(r.enfermedad_id)} />
+            </Revelar>
           ))}
         </div>
       )}
 
+      <Revelar>
       {/* Histórico + volcán/clima */}
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="min-w-0 lg:col-span-2">
@@ -164,6 +168,9 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      </Revelar>
+
+      <Revelar>
       {/* Explicabilidad + recomendaciones */}
       <div className="grid gap-6 lg:grid-cols-2">
         {municipioId != null && enfermedadId != null
@@ -175,6 +182,9 @@ export default function DashboardPage() {
         </Card>
       </div>
 
+      </Revelar>
+
+      <Revelar>
       {/* Mapa + tabla por municipio */}
       <Card className="min-w-0">
         <CardHeader titulo="Mapa de riesgo · zona de influencia del Galeras" icono={<IconoMapa size={17} />}
@@ -214,6 +224,9 @@ export default function DashboardPage() {
         )}
       </Card>
 
+      </Revelar>
+
+      <Revelar>
       {/* Pronóstico */}
       <Card>
         <CardHeader titulo="Pronóstico del clima · próximos 16 días" icono={<CloudSun size={17} />}
@@ -224,6 +237,7 @@ export default function DashboardPage() {
             : <PronosticoClima dias={pronostico} />}
         </div>
       </Card>
+      </Revelar>
     </div>
   );
 }
