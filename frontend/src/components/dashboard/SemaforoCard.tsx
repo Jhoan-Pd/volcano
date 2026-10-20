@@ -43,11 +43,11 @@ export default function SemaforoCard({ r, activo, onClick }: { r: RiesgoEnfermed
         activo ? "border-ink/40 shadow-md" : "border-line"}`}>
       <span className="absolute inset-x-0 top-0 h-1" style={{ background: borde }} />
       <div className="flex items-start justify-between gap-2">
-        <p className="text-sm font-semibold leading-snug">{r.nombre}</p>
+        <p className="titulo-seccion text-[15px] leading-tight">{r.nombre}</p>
         <NivelChip nivel={r.nivel} />
       </div>
       <div className="mt-3 flex items-end gap-2">
-        <span className="text-3xl font-semibold leading-none tracking-tight">{fmtNum(r.casos)}</span>
+        <span className="cifra text-5xl">{fmtNum(r.casos)}</span>
         <span className="pb-0.5 text-xs text-muted">casos · S{r.semana_epi}</span>
       </div>
       <div className="mt-1.5 flex items-center gap-3 text-xs text-ink-2">
@@ -64,7 +64,7 @@ export default function SemaforoCard({ r, activo, onClick }: { r: RiesgoEnfermed
         {r.prediccion ? (
           <>
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-medium uppercase tracking-wide text-muted">Próximas 4 semanas</span>
+              <span className="etiqueta text-muted">Próximas 4 semanas</span>
               <NivelChip nivel={r.prediccion.nivel_max as Nivel} />
             </div>
             <p className="mt-1 text-xs text-ink-2 tabular">
