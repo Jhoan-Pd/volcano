@@ -6,6 +6,7 @@ import CrudTable, { type Campo } from "../components/admin/CrudTable";
 import PanelAlertas from "../components/admin/PanelAlertas";
 import PanelDatos from "../components/admin/PanelDatos";
 import PanelModelo from "../components/admin/PanelModelo";
+import TituloRevelado from "../components/TituloRevelado";
 import { Card } from "../components/ui";
 
 const NIVELES = ["VERDE", "AMARILLO", "NARANJA", "ROJO"].map((n) => ({ valor: n, etiqueta: n.charAt(0) + n.slice(1).toLowerCase() }));
@@ -117,7 +118,7 @@ export default function AdminPage() {
     <div className="space-y-6">
       <div>
         <p className="titulo-seccion text-[13px] text-muted">Panel de administración</p>
-        <h1 className="titulo-display mt-2 text-[2.6rem] sm:text-6xl">Gestión de datos</h1>
+        <TituloRevelado className="titulo-display mt-2 text-[2.6rem] sm:text-6xl" texto="Gestión de datos" />
       </div>
       <div className="flex gap-1 overflow-x-auto border-b border-line" role="tablist">
         {pestanas.map((p) => (

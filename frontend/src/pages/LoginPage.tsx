@@ -4,6 +4,7 @@ import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { mensajeError } from "../api/cliente";
 import { authApi, catalogoApi } from "../api/servicios";
 import type { Municipio } from "../api/tipos";
+import TituloRevelado from "../components/TituloRevelado";
 import { Aviso, Boton, Card, claseInput, Etiqueta } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 
@@ -53,7 +54,7 @@ export default function LoginPage() {
   return (
     <div className="mx-auto max-w-md py-6">
       <Card className="p-6 sm:p-8">
-        <h1 className="titulo-display text-4xl">{modo === "login" ? "Iniciar sesión" : "Crear cuenta de ciudadano"}</h1>
+        <TituloRevelado className="titulo-display text-4xl" texto={modo === "login" ? "Iniciar sesión" : "Crear cuenta de ciudadano"} />
         <p className="mt-1 text-sm text-ink-2">
           {modo === "login"
             ? "El dashboard es público; inicia sesión para administrar datos o reportar como farmacia."
