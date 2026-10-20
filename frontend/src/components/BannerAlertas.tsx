@@ -41,7 +41,7 @@ export default function BannerAlertas() {
   }
 
   return (
-    <div role="alert" className="border-b"
+    <div role="alert" className="entrar-arriba border-b"
       style={{ borderColor: `color-mix(in srgb, ${NIVELES[nivel].color} 35%, transparent)`,
                background: `color-mix(in srgb, ${NIVELES[nivel].color} 9%, var(--page))` }}>
       <div className="mx-auto max-w-7xl px-4 py-2.5 sm:px-6">
@@ -66,8 +66,8 @@ export default function BannerAlertas() {
         </div>
         {abierto && (
           <ul className="mt-2 space-y-1.5 pb-1">
-            {alertas.map((a) => (
-              <li key={a.id} className="flex flex-col gap-1 rounded-lg bg-surface/70 px-3 py-2 text-[13px] sm:flex-row sm:items-center sm:gap-3">
+            {alertas.map((a, i) => (
+              <li key={a.id} style={{ animationDelay: `${i * 60}ms` }} className="entrar flex flex-col gap-1 rounded-lg bg-surface/70 px-3 py-2 text-[13px] sm:flex-row sm:items-center sm:gap-3">
                 <span className="flex shrink-0 items-center gap-2">
                   <NivelChip nivel={a.nivel_riesgo} />
                   <span className="rounded-full border border-line px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted">

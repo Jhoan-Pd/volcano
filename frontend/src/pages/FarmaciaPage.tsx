@@ -6,6 +6,7 @@ import { farmaciaApi } from "../api/servicios";
 import type { Categoria, Farmacia, MiFarmacia, ReporteSemanal } from "../api/tipos";
 import { Aviso, Boton, Card, CardHeader, claseInput, Etiqueta, Modal, SimuladoBadge, Spinner } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
+import TituloRevelado from "../components/TituloRevelado";
 import { CATEGORIAS, fmtFecha, fmtNum } from "../lib/formato";
 
 const MAX_UNIDADES = 100_000;
@@ -128,7 +129,7 @@ export default function FarmaciaPage() {
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="titulo-seccion text-[13px] text-muted">Panel de farmacia</p>
-          <h1 className="titulo-display mt-2 text-[2.6rem] sm:text-6xl">{info?.nombre ?? "Cargando…"}</h1>
+          <TituloRevelado className="titulo-display mt-2 text-[2.6rem] sm:text-6xl" texto={info?.nombre ?? "Cargando…"} />
           {info && <p className="mt-1 text-sm text-ink-2">{info.municipio} · NIT {info.nit}{info.direccion ? ` · ${info.direccion}` : ""}</p>}
         </div>
         {esAdmin && (

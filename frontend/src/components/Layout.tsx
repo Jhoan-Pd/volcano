@@ -21,9 +21,10 @@ function Enlace({ to, icono, children }: { to: string; icono: ReactNode; childre
   return (
     <NavLink to={to} end
       className={({ isActive }) =>
-        `inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+        `inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors duration-[520ms] ease-[var(--ease-fondo)] ${
           isActive ? "bg-surface-2 text-ink" : "text-ink-2 hover:bg-surface-2 hover:text-ink"}`}>
-      {icono}<span className="hidden sm:inline">{children}</span>
+      {icono}
+      <span className="rodar hidden sm:inline-block"><span data-texto={typeof children === "string" ? children : undefined}>{children}</span></span>
     </NavLink>
   );
 }

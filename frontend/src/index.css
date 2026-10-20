@@ -137,3 +137,57 @@ body { font-size: 15px; letter-spacing: 0.005em; }
 .leaflet-popup-content { margin: 10px 12px; }
 .leaflet-bar a, .leaflet-control-attribution { background: var(--surface) !important; color: var(--ink-2) !important; }
 .leaflet-control-attribution a { color: var(--accent) !important; }
+
+/* ── Movimiento ──────────────────────────────────────────────────────────────
+   Dos curvas: una salida suave y larga para revelar contenido y otra más corta
+   para cambios de color de fondo. Todo se desactiva con prefers-reduced-motion. */
+:root {
+  --ease-salida: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-fondo: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+body { transition: background-color 0.52s var(--ease-fondo), color 0.52s var(--ease-fondo); }
+
+/* Aparición al hacer scroll: sube 24 px y aparece (ver components/Revelar.tsx) */
+.revelar {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.6s var(--ease-salida), transform 0.9s var(--ease-salida);
+  transition-delay: var(--retraso, 0ms);
+}
+.revelar.visible { opacity: 1; transform: none; }
+
+/* Títulos que entran desde una máscara, palabra por palabra (ver TituloRevelado.tsx) */
+.mascara { display: inline-block; overflow: hidden; vertical-align: top; padding-bottom: 0.08em; margin-bottom: -0.08em; }
+.mascara > span {
+  display: inline-block;
+  transform: translateY(105%);
+  animation: subir 0.9s var(--ease-salida) forwards;
+  animation-delay: var(--retraso, 0ms);
+}
+@keyframes subir { to { transform: translateY(0); } }
+
+/* Enlaces con texto que "rueda" hacia arriba al pasar el mouse */
+.rodar { position: relative; display: inline-block; overflow: hidden; vertical-align: top; line-height: 1.25; }
+.rodar > span { display: block; transition: transform 0.5s var(--ease-salida); }
+.rodar > span::after { content: attr(data-texto); position: absolute; left: 0; top: 100%; }
+:where(a, button):hover > .rodar > span,
+:where(a, button):focus-visible > .rodar > span { transform: translateY(-100%); }
+
+/* Subrayado que crece de izquierda a derecha */
+.subrayar { background: linear-gradient(currentColor, currentColor) 0 100% / 0 1px no-repeat; transition: background-size 0.5s var(--ease-salida); }
+.subrayar:hover, .subrayar:focus-visible { background-size: 100% 1px; }
+
+/* Entrada de capas: banner de alertas, menús y diálogos */
+@keyframes bajar { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+@keyframes aparecer { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes fundido { from { opacity: 0; } to { opacity: 1; } }
+.entrar-arriba { animation: bajar 0.6s var(--ease-salida) both; }
+.entrar { animation: aparecer 0.45s var(--ease-salida) both; }
+.fundido { animation: fundido 0.3s var(--ease-fondo) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-delay: 0ms !important; transition-duration: 0.01ms !important; transition-delay: 0ms !important; }
+  .revelar { opacity: 1; transform: none; }
+  .mascara > span { transform: none; }
+}
