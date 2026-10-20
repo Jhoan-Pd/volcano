@@ -19,7 +19,7 @@ export function CardHeader({ titulo, subtitulo, accion, icono }: {
       <div className="flex items-start gap-2.5">
         {icono && <span className="mt-0.5 text-muted">{icono}</span>}
         <div>
-          <h2 className="text-[15px] font-semibold text-ink">{titulo}</h2>
+          <h2 className="titulo-seccion text-[17px] text-ink">{titulo}</h2>
           {subtitulo && <p className="mt-0.5 text-xs text-muted">{subtitulo}</p>}
         </div>
       </div>
@@ -98,7 +98,7 @@ export function Modal({ abierto, titulo, onCerrar, children, ancho = "max-w-lg" 
         className={`w-full ${ancho} rounded-2xl border border-line bg-surface shadow-xl`}
         onMouseDown={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
-          <h3 className="font-semibold">{titulo}</h3>
+          <h3 className="titulo-seccion text-lg">{titulo}</h3>
           <button onClick={onCerrar} className="rounded-md p-1 text-muted hover:bg-surface-2" aria-label="Cerrar"><X size={18} /></button>
         </div>
         <div className="px-5 py-4">{children}</div>

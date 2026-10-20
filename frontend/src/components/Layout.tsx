@@ -40,7 +40,7 @@ export default function Layout() {
           <Link to="/" className="flex items-center gap-2.5">
             <Logo />
             <div className="leading-tight">
-              <p className="text-sm font-semibold">Predictor de Brotes</p>
+              <p className="titulo-seccion text-[15px]">Predictor de Brotes</p>
               <p className="text-[11px] text-muted">Pasto · Zona Volcán Galeras</p>
             </div>
           </Link>
