@@ -97,8 +97,8 @@ export default function DashboardPage() {
       {/* Encabezado y filtro */}
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-xs font-medium uppercase tracking-wider text-accent">Vigilancia epidemiológica temprana</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
+          <p className="titulo-seccion text-[13px] text-muted">Vigilancia epidemiológica temprana</p>
+          <h1 className="titulo-display mt-2 text-[2.6rem] sm:text-6xl lg:text-7xl">
             Riesgo de brotes en {resumen?.municipio ?? municipio?.nombre ?? "…"}
           </h1>
           <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-ink-2">
