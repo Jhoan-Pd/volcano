@@ -67,7 +67,7 @@ export function Aviso({ tipo = "info", children }: { tipo?: "info" | "error" | "
 type Variante = "primario" | "secundario" | "peligro" | "fantasma";
 export function Boton({ variante = "primario", cargando, children, className = "", ...props }:
   ButtonHTMLAttributes<HTMLButtonElement> & { variante?: Variante; cargando?: boolean }) {
-  const base = "inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+  const base = "inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-[background-color,color,opacity,transform] duration-[520ms] ease-[var(--ease-fondo)] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
   const v = {
     primario: "bg-ink text-page hover:opacity-90",
     secundario: "border border-line bg-surface text-ink hover:bg-surface-2",
@@ -93,9 +93,9 @@ export function Modal({ abierto, titulo, onCerrar, children, ancho = "max-w-lg" 
   }, [abierto, onCerrar]);
   if (!abierto) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 pt-[8vh]" onMouseDown={onCerrar}>
+    <div className="fundido fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 pt-[8vh]" onMouseDown={onCerrar}>
       <div role="dialog" aria-modal="true" aria-label={titulo}
-        className={`w-full ${ancho} rounded-lg border border-line bg-surface shadow-xl`}
+        className={`entrar w-full ${ancho} rounded-lg border border-line bg-surface shadow-xl`}
         onMouseDown={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
           <h3 className="titulo-seccion text-lg">{titulo}</h3>
