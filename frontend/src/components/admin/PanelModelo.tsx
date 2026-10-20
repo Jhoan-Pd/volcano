@@ -100,7 +100,7 @@ export default function PanelModelo() {
         <Aviso>Aún no hay modelos entrenados. Pulsa «Reentrenar modelo».</Aviso>
       ) : (
         <>
-          <div className="overflow-x-auto rounded-xl border border-line">
+          <div className="overflow-x-auto rounded-lg border border-line">
             <table className="w-full min-w-[720px] text-sm">
               <thead>
                 <tr className="border-b border-line bg-surface-2 text-left text-xs text-muted">
@@ -144,7 +144,7 @@ export default function PanelModelo() {
       {historial && historial.length > 0 && (
         <div>
           <h3 className="titulo-seccion mb-2 flex items-center gap-2 text-[15px]"><History size={15} className="text-muted" /> Historial de entrenamientos</h3>
-          <ul className="divide-y divide-line rounded-xl border border-line text-sm">
+          <ul className="divide-y divide-line rounded-lg border border-line text-sm">
             {historial.slice(0, 15).map((m) => (
               <li key={m.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
                 <span><b className="font-medium">{m.enfermedad}</b> · {m.algoritmo} <span className="text-muted">v{m.version}</span></span>
@@ -170,7 +170,7 @@ function DetalleModelo({ m }: { m: ModeloEntrenado }) {
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <div className="rounded-xl border border-line p-4">
+      <div className="rounded-lg border border-line p-4">
         <p className="flex items-center gap-2 font-medium"><BrainCircuit size={16} className="text-muted" /> Comparación de algoritmos · {m.enfermedad}</p>
         <p className="mt-0.5 text-xs text-muted">Validación con las últimas {m.metricas?.semanas_prueba ?? 52} semanas · {fmtNum(m.n_muestras)} filas de entrenamiento</p>
         <table className="mt-3 w-full text-sm">
@@ -195,7 +195,7 @@ function DetalleModelo({ m }: { m: ModeloEntrenado }) {
           </tbody>
         </table>
       </div>
-      <div className="rounded-xl border border-line p-4">
+      <div className="rounded-lg border border-line p-4">
         <p className="font-medium">Importancia de las variables</p>
         <p className="mt-0.5 text-xs text-muted">{m.importancias?.metodo ?? "Permutación"} · porcentaje del total</p>
         {grupos.length === 0 ? <p className="py-6 text-center text-sm text-muted">Sin datos.</p> : (

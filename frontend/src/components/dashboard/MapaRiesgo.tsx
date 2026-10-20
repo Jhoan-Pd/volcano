@@ -39,7 +39,7 @@ export default function MapaRiesgo({ filas, modo, codigo, enfermedades, seleccio
   const ordenadas = [...filas].sort((a, b) => ORDEN.indexOf(nivelDe(a, modo, codigo)) - ORDEN.indexOf(nivelDe(b, modo, codigo)));
 
   return (
-    <div className="relative isolate h-80 overflow-hidden rounded-xl border border-line sm:h-[26rem]">
+    <div className="relative isolate h-80 overflow-hidden rounded-lg border border-line sm:h-[26rem]">
       <MapContainer bounds={limites} scrollWheelZoom={false} className="h-full w-full" style={{ background: "var(--surface-2)" }}
         attributionControl>
         <TileLayer key={tema}

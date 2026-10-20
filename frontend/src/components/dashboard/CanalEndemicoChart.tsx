@@ -121,7 +121,7 @@ function Tip({ active, payload }: { active?: boolean; payload?: { payload: Fila 
   if (!active || !payload?.length) return null;
   const p = payload[0].payload;
   return (
-    <div className="rounded-xl border border-line bg-surface px-3 py-2 text-xs shadow-lg">
+    <div className="rounded-lg border border-line bg-surface px-3 py-2 text-xs shadow-lg">
       <p className="font-semibold">{p.etiqueta.replace("-S", " · Semana ")}{p.futuro ? " · predicción" : ""}</p>
       <p className="text-muted">desde {fmtFecha(p.fecha_inicio)}</p>
       {p.futuro ? (

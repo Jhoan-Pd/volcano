@@ -89,7 +89,7 @@ export default function PanelAlertas() {
       {!datos ? <Spinner /> : datos.items.length === 0 ? (
         <p className="py-8 text-center text-sm text-muted">No hay alertas {filtro === true ? "activas" : filtro === false ? "cerradas" : ""}.</p>
       ) : (
-        <div className="relative overflow-x-auto rounded-xl border border-line">
+        <div className="relative overflow-x-auto rounded-lg border border-line">
           <table className="w-full min-w-[860px] text-sm">
             <thead>
               <tr className="border-b border-line bg-surface-2 text-left text-xs text-muted">

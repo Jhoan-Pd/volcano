@@ -30,7 +30,7 @@ function Fuente({ icono, titulo, descripcion, children, mensaje }: {
   icono: ReactNode; titulo: string; descripcion: string; children: ReactNode; mensaje: Mensaje;
 }) {
   return (
-    <div className="flex flex-col rounded-xl border border-line p-4">
+    <div className="flex flex-col rounded-lg border border-line p-4">
       <p className="flex items-center gap-2 font-medium"><span className="text-muted">{icono}</span>{titulo}</p>
       <p className="mt-1 flex-1 text-sm text-ink-2">{descripcion}</p>
       <div className="mt-3 flex flex-wrap items-center gap-2">{children}</div>
@@ -107,7 +107,7 @@ export default function PanelDatos() {
       <div>
         <h3 className="titulo-seccion mb-2 flex items-center gap-2 text-[15px]"><Database size={15} className="text-muted" /> Estado de las tablas</h3>
         {errorEstado ? <Aviso tipo="error">{errorEstado}</Aviso> : !estado ? <Spinner /> : (
-          <div className="overflow-x-auto rounded-xl border border-line">
+          <div className="overflow-x-auto rounded-lg border border-line">
             <table className="w-full min-w-[620px] text-sm">
               <thead>
                 <tr className="border-b border-line bg-surface-2 text-left text-xs text-muted">
@@ -165,7 +165,7 @@ function CargaCsv({ alTerminar }: { alTerminar: () => void }) {
   }
 
   return (
-    <div className="rounded-xl border border-line p-4">
+    <div className="rounded-lg border border-line p-4">
       <p className="flex items-center gap-2 font-medium"><FileUp size={16} className="text-muted" /> Carga de CSV</p>
       <p className="mt-1 text-sm text-ink-2">
         Inserta o actualiza registros (subir el mismo archivo dos veces no duplica). Separador coma o punto y coma; máximo 5 MB.
