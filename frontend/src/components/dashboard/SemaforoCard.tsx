@@ -1,6 +1,8 @@
 import { Minus, TrendingDown, TrendingUp } from "lucide-react";
 import type { Nivel, RiesgoEnfermedad } from "../../api/tipos";
 import { fmtNum, NIVELES } from "../../lib/formato";
+import { useContador } from "../../lib/useContador";
+import { useVisible } from "../Revelar";
 import { NivelChip } from "../ui";
 
 /** Barra del canal endémico: muestra dónde cae la semana actual respecto a los umbrales. */
@@ -37,9 +39,11 @@ export default function SemaforoCard({ r, activo, onClick }: { r: RiesgoEnfermed
   const v = r.variacion_pct;
   const Tendencia = v == null || Math.abs(v) < 5 ? Minus : v > 0 ? TrendingUp : TrendingDown;
   const borde = NIVELES[r.nivel].color;
+  const { ref, visible } = useVisible<HTMLButtonElement>();
+  const casos = useContador(r.casos, visible);
   return (
-    <button onClick={onClick} aria-pressed={activo}
-      className={`group relative flex flex-col overflow-hidden rounded-lg border bg-surface p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md ${
+    <button ref={ref} onClick={onClick} aria-pressed={activo}
+      className={`group relative flex w-full flex-col overflow-hidden rounded-lg border bg-surface p-4 text-left transition-[transform,box-shadow,border-color] duration-300 ease-[var(--ease-salida)] hover:-translate-y-1 hover:shadow-md ${
         activo ? "border-ink/40 shadow-md" : "border-line"}`}>
       <span className="absolute inset-x-0 top-0 h-1" style={{ background: borde }} />
       <div className="flex items-start justify-between gap-2">
@@ -47,7 +51,7 @@ export default function SemaforoCard({ r, activo, onClick }: { r: RiesgoEnfermed
         <NivelChip nivel={r.nivel} />
       </div>
       <div className="mt-3 flex items-end gap-2">
-        <span className="cifra text-5xl">{fmtNum(r.casos)}</span>
+        <span className="cifra text-5xl" aria-label={`${fmtNum(r.casos)} casos`}>{fmtNum(Math.round(casos))}</span>
         <span className="pb-0.5 text-xs text-muted">casos · S{r.semana_epi}</span>
       </div>
       <div className="mt-1.5 flex items-center gap-3 text-xs text-ink-2">
