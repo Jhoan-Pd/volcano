@@ -4,21 +4,21 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ── Tokens de diseño ─────────────────────────────────────────────────────
-   Superficies cálidas (inspiradas en la ceniza y la roca volcánica), un acento
-   "brasa" heredado del sistema anterior (#D4873A) y una paleta de estado fija
-   para el semáforo (siempre acompañada de icono + texto, nunca solo color). */
+   Neutros grises casi monocromáticos (gris claro de fondo, negro y blanco), el
+   negro/blanco como acento y una paleta de estado fija para el semáforo (siempre
+   acompañada de icono + texto, nunca solo color). */
 :root {
   color-scheme: light;
-  --page: #f6f5f2;
-  --surface: #fcfcfb;
-  --surface-2: #f0efeb;
-  --ink: #171614;
-  --ink-2: #52514e;
-  --muted: #7d7b75;
-  --line: #e3e1da;
-  --axis: #c3c2b7;
-  --accent: #b8692a;
-  --accent-soft: #f6e6d6;
+  --page: #ececec;
+  --surface: #f7f7f7;
+  --surface-2: #e3e3e3;
+  --ink: #000000;
+  --ink-2: #3d3d3d;
+  --muted: #636363;
+  --line: #d4d4d4;
+  --axis: #b4b4b4;
+  --accent: #000000;
+  --accent-soft: #dcdcdc;
 
   --series-1: #2a78d6;
   --series-2: #eb6834;
@@ -36,16 +36,16 @@
 
 .dark {
   color-scheme: dark;
-  --page: #0e0d0c;
-  --surface: #1a1918;
-  --surface-2: #232220;
-  --ink: #f5f4f0;
-  --ink-2: #c3c2b7;
-  --muted: #8f8d86;
-  --line: #2e2d2a;
-  --axis: #3d3c38;
-  --accent: #e0954f;
-  --accent-soft: #3a2a1c;
+  --page: #000000;
+  --surface: #181818;
+  --surface-2: #232323;
+  --ink: #ffffff;
+  --ink-2: #c0c0c0;
+  --muted: #8a8a8a;
+  --line: #2e2e2e;
+  --axis: #3d3d3d;
+  --accent: #ffffff;
+  --accent-soft: #303030;
 
   --series-1: #3987e5;
   --series-2: #d95926;
