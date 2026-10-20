@@ -193,7 +193,7 @@ export default function FarmaciaPage() {
                     <YAxis tickLine={false} axisLine={false} width={44} allowDecimals={false} />
                     <Tooltip cursor={{ fill: "var(--surface-2)" }} formatter={(v) => [fmtNum(Number(v)), "Unidades"]}
                       contentStyle={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 12, fontSize: 12 }} />
-                    <Bar dataKey="total" fill="var(--accent)" radius={[4, 4, 0, 0]} maxBarSize={22} isAnimationActive={false} />
+                    <Bar dataKey="total" fill="var(--series-1)" radius={[4, 4, 0, 0]} maxBarSize={18} isAnimationActive={false} />
                   </BarChart>
                 </ResponsiveContainer>
               )}
