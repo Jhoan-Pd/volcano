@@ -63,7 +63,7 @@ function TipTemp({ active, payload }: { active?: boolean; payload?: P[] }) {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
   return (
-    <div className="rounded-xl border border-line bg-surface px-3 py-2 text-xs shadow-lg tabular">
+    <div className="rounded-lg border border-line bg-surface px-3 py-2 text-xs shadow-lg tabular">
       <p className="font-semibold">{fmtFecha(d.fecha, { weekday: "long", day: "numeric", month: "long" })}</p>
       <p className="mt-1 text-ink-2">Máx. <b className="text-ink">{fmtNum(d.temp_max_c, 1)} °C</b> · Mín. <b className="text-ink">{fmtNum(d.temp_min_c, 1)} °C</b></p>
       <p className="text-ink-2">Humedad {fmtNum(d.humedad_relativa_pct, 0)} %</p>
@@ -74,7 +74,7 @@ function TipLluvia({ active, payload }: { active?: boolean; payload?: P[] }) {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
   return (
-    <div className="rounded-xl border border-line bg-surface px-3 py-2 text-xs shadow-lg tabular">
+    <div className="rounded-lg border border-line bg-surface px-3 py-2 text-xs shadow-lg tabular">
       <p className="font-semibold">{fmtFecha(d.fecha, { weekday: "long", day: "numeric", month: "long" })}</p>
       <p className="mt-1 text-ink-2">Lluvia <b className="text-ink">{fmtNum(d.precipitacion_mm, 1)} mm</b></p>
     </div>

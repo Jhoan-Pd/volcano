@@ -39,7 +39,7 @@ export default function SemaforoCard({ r, activo, onClick }: { r: RiesgoEnfermed
   const borde = NIVELES[r.nivel].color;
   return (
     <button onClick={onClick} aria-pressed={activo}
-      className={`group relative flex flex-col overflow-hidden rounded-2xl border bg-surface p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md ${
+      className={`group relative flex flex-col overflow-hidden rounded-lg border bg-surface p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md ${
         activo ? "border-ink/40 shadow-md" : "border-line"}`}>
       <span className="absolute inset-x-0 top-0 h-1" style={{ background: borde }} />
       <div className="flex items-start justify-between gap-2">

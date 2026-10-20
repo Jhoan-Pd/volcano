@@ -51,7 +51,7 @@ export default function MenuReportes({ municipioId, municipio, enfermedadId }: {
         <Download size={15} /> Descargar
       </button>
       {abierto && (
-        <div role="menu" className="absolute right-0 z-50 mt-1.5 w-72 rounded-xl border border-line bg-surface p-1.5 shadow-xl">
+        <div role="menu" className="absolute right-0 z-50 mt-1.5 w-72 rounded-lg border border-line bg-surface p-1.5 shadow-xl">
           {opciones.map((o) => (
             <button key={o.id} role="menuitem" onClick={() => bajar(o.id, o.fn)} disabled={cargando != null}
               className="flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left hover:bg-surface-2 disabled:opacity-60">

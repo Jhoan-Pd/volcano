@@ -5,7 +5,7 @@ import { NIVELES } from "../lib/formato";
 
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
-    <section className={`rounded-2xl border border-line bg-surface shadow-[0_1px_2px_rgba(0,0,0,0.04)] ${className}`}>
+    <section className={`rounded-lg border border-line bg-surface shadow-[0_1px_2px_rgba(0,0,0,0.04)] ${className}`}>
       {children}
     </section>
   );
@@ -61,7 +61,7 @@ export function Aviso({ tipo = "info", children }: { tipo?: "info" | "error" | "
     error: "border-[color-mix(in_srgb,var(--st-rojo)_40%,transparent)] bg-[color-mix(in_srgb,var(--st-rojo)_8%,transparent)] text-[var(--st-rojo-ink)]",
     ok: "border-[color-mix(in_srgb,var(--st-verde)_40%,transparent)] bg-[color-mix(in_srgb,var(--st-verde)_8%,transparent)] text-[var(--st-verde-ink)]",
   }[tipo];
-  return <div className={`rounded-xl border px-4 py-3 text-sm ${estilos}`} role={tipo === "error" ? "alert" : "status"}>{children}</div>;
+  return <div className={`rounded-lg border px-4 py-3 text-sm ${estilos}`} role={tipo === "error" ? "alert" : "status"}>{children}</div>;
 }
 
 type Variante = "primario" | "secundario" | "peligro" | "fantasma";
@@ -95,7 +95,7 @@ export function Modal({ abierto, titulo, onCerrar, children, ancho = "max-w-lg" 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 pt-[8vh]" onMouseDown={onCerrar}>
       <div role="dialog" aria-modal="true" aria-label={titulo}
-        className={`w-full ${ancho} rounded-2xl border border-line bg-surface shadow-xl`}
+        className={`w-full ${ancho} rounded-lg border border-line bg-surface shadow-xl`}
         onMouseDown={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
           <h3 className="titulo-seccion text-lg">{titulo}</h3>

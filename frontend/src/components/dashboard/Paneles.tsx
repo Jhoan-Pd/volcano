@@ -45,7 +45,7 @@ export function VolcanCard({ v }: { v: EstadoVolcan }) {
 
 function Dato({ icono, etiqueta, valor }: { icono: ReactNode; etiqueta: string; valor: string }) {
   return (
-    <div className="rounded-xl bg-surface-2 px-3 py-2.5">
+    <div className="rounded-lg bg-surface-2 px-3 py-2.5">
       <p className="flex items-center gap-1.5 text-[11px] text-muted">{icono}{etiqueta}</p>
       <p className="mt-0.5 text-base font-semibold tabular">{valor}</p>
     </div>
@@ -108,7 +108,7 @@ export function Recomendaciones({ riesgos }: { riesgos: RiesgoEnfermedad[] }) {
   return (
     <div className="grid gap-3 px-5 pb-5 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
       {lista.map((r) => (
-        <div key={r.codigo} className="rounded-xl border border-line p-4">
+        <div key={r.codigo} className="rounded-lg border border-line p-4">
           <div className="mb-2 flex items-center justify-between gap-2">
             <p className="flex items-center gap-2 text-sm font-semibold">
               <Lightbulb size={15} className="text-muted" aria-hidden />{r.nombre}
