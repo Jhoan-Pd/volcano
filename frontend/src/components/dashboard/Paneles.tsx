@@ -17,7 +17,7 @@ export function VolcanCard({ v }: { v: EstadoVolcan }) {
         <div className="flex flex-wrap items-center gap-2">
           {v.url_boletin && (
             <a href={v.url_boletin} target="_blank" rel="noreferrer"
-              className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline">
+              className="subrayar inline-flex items-center gap-1 text-xs font-medium text-accent">
               Ver boletín oficial <ExternalLink size={12} />
             </a>
           )}
