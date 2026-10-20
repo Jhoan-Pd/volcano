@@ -116,8 +116,8 @@ export default function AdminPage() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-xs font-medium uppercase tracking-wider text-accent">Panel de administración</p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight">Gestión de datos</h1>
+        <p className="titulo-seccion text-[13px] text-muted">Panel de administración</p>
+        <h1 className="titulo-display mt-2 text-[2.6rem] sm:text-6xl">Gestión de datos</h1>
       </div>
       <div className="flex gap-1 overflow-x-auto border-b border-line" role="tablist">
         {pestanas.map((p) => (

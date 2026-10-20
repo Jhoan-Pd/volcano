@@ -62,7 +62,7 @@ export default function PanelDatos() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold">Fuentes de datos</h2>
+        <h2 className="titulo-seccion text-2xl">Fuentes de datos</h2>
         <p className="text-xs text-muted">
           GitHub Actions ejecuta estas sincronizaciones una vez al día. Aquí puedes lanzarlas a mano o cargar archivos.
         </p>
@@ -105,7 +105,7 @@ export default function PanelDatos() {
       <CargaCsv alTerminar={cargarEstado} />
 
       <div>
-        <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold"><Database size={15} className="text-muted" /> Estado de las tablas</h3>
+        <h3 className="titulo-seccion mb-2 flex items-center gap-2 text-[15px]"><Database size={15} className="text-muted" /> Estado de las tablas</h3>
         {errorEstado ? <Aviso tipo="error">{errorEstado}</Aviso> : !estado ? <Spinner /> : (
           <div className="overflow-x-auto rounded-xl border border-line">
             <table className="w-full min-w-[620px] text-sm">

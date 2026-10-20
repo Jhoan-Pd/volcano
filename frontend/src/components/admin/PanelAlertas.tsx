@@ -60,7 +60,7 @@ export default function PanelAlertas() {
     <div className="space-y-5">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
-          <h2 className="flex items-center gap-2 text-lg font-semibold"><BellRing size={18} className="text-muted" /> Alertas tempranas</h2>
+          <h2 className="titulo-seccion flex items-center gap-2 text-2xl"><BellRing size={18} className="text-muted" /> Alertas tempranas</h2>
           <p className="max-w-2xl text-xs text-muted">
             Se generan cuando el riesgo llega a <b>alto</b> o <b>muy alto</b>, por los casos observados o por la predicción de las
             próximas 4 semanas. Se evalúan tras cada reentrenamiento y en la actualización diaria. Una alerta cerrada a mano

@@ -53,7 +53,7 @@ export default function LoginPage() {
   return (
     <div className="mx-auto max-w-md py-6">
       <Card className="p-6 sm:p-8">
-        <h1 className="text-xl font-semibold">{modo === "login" ? "Iniciar sesión" : "Crear cuenta de ciudadano"}</h1>
+        <h1 className="titulo-display text-4xl">{modo === "login" ? "Iniciar sesión" : "Crear cuenta de ciudadano"}</h1>
         <p className="mt-1 text-sm text-ink-2">
           {modo === "login"
             ? "El dashboard es público; inicia sesión para administrar datos o reportar como farmacia."

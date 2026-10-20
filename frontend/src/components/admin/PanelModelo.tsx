@@ -66,7 +66,7 @@ export default function PanelModelo() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
-          <h2 className="text-lg font-semibold">Modelo predictivo</h2>
+          <h2 className="titulo-seccion text-2xl">Modelo predictivo</h2>
           <p className="max-w-2xl text-xs text-muted">
             Para cada enfermedad se comparan la línea base (promedio móvil de 4 semanas), Random Forest y Gradient Boosting
             con validación temporal (últimas 52 semanas). Se guarda el de menor MAE con su fecha y métricas.
@@ -143,7 +143,7 @@ export default function PanelModelo() {
 
       {historial && historial.length > 0 && (
         <div>
-          <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold"><History size={15} className="text-muted" /> Historial de entrenamientos</h3>
+          <h3 className="titulo-seccion mb-2 flex items-center gap-2 text-[15px]"><History size={15} className="text-muted" /> Historial de entrenamientos</h3>
           <ul className="divide-y divide-line rounded-xl border border-line text-sm">
             {historial.slice(0, 15).map((m) => (
               <li key={m.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">

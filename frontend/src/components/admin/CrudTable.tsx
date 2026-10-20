@@ -136,7 +136,7 @@ export default function CrudTable({ recurso, titulo, campos, descripcion }: {
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold">{titulo}</h2>
+          <h2 className="titulo-seccion text-2xl">{titulo}</h2>
           <p className="text-xs text-muted">{descripcion ?? `${total} registros`}</p>
         </div>
         <Boton onClick={() => abrir("nuevo")}><Plus size={16} /> Nuevo</Boton>
