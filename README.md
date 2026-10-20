@@ -6,7 +6,7 @@ Plataforma web que cruza **datos públicos** (clima, búsquedas de síntomas en 
 
 | | |
 |---|---|
-| **Frontend** | React 19 · Vite · TypeScript · TailwindCSS 4 · Recharts · React-Leaflet · React Router · Axios |
+| **Frontend** | React 19 · Vite · TypeScript · TailwindCSS 4 · Recharts · React-Leaflet · React Router · Axios · Fontsource |
 | **Backend** | Python 3.12 · FastAPI · SQLAlchemy 2 · Pydantic 2 · Alembic · scikit-learn · pandas · ReportLab |
 | **Base de datos** | PostgreSQL (Neon o Supabase, plan gratuito) · SQLite para desarrollo rápido |
 | **Automatización** | GitHub Actions: actualización diaria (cron) e integración continua |
@@ -204,6 +204,19 @@ La evaluación es idempotente: no duplica alertas, actualiza el nivel si empeora
 | **Farmacia** | FARMACIA (y ADMIN) | Reporte semanal de ventas por categoría con validaciones, historial, edición y gráfica |
 | **Administración** | ADMIN | CRUD de enfermedades (con umbrales), municipios, farmacias, usuarios y eventos volcánicos · Fuentes de datos (sincronizar clima, Trends y SIVIGILA, carga de CSV, estado de tablas) · Modelo (reentrenar, métricas, comparación, importancias, historial) · Alertas (evaluar, cerrar, exportar) |
 | **Login / registro** | — | Los ciudadanos se registran con su municipio para recibir alertas |
+
+---
+
+## Diseño visual
+
+| Elemento | Decisión |
+|---|---|
+| **Tipografía** | *Bricolage Grotesque* (títulos, ancho 85 %, mayúsculas, tracking −3,5 %), *Hanken Grotesk* (texto y etiquetas de 12 px con tracking 1 %) y *Geist* (cifras grandes del semáforo, tracking −4 %). Las tres son libres (OFL) y se sirven desde el propio sitio con Fontsource, sin depender de Google Fonts |
+| **Color** | Neutros grises casi monocromáticos: fondo `#ECECEC`, tarjetas `#F7F7F7` y texto negro en claro; fondo negro, tarjetas `#181818` y texto blanco en oscuro. El color se reserva para el semáforo (siempre con icono y texto) y las series de las gráficas. Contraste AA comprobado para los textos |
+| **Forma** | Bordes de 8 px en tarjetas, tablas y menús |
+| **Movimiento** | Dos curvas: `cubic-bezier(0.22, 1, 0.36, 1)` para revelar contenido (0,6-0,9 s) y `cubic-bezier(0.22, 0.61, 0.36, 1)` para cambios de fondo (0,52 s). Títulos que entran palabra por palabra desde una máscara, secciones y tarjetas que aparecen al hacer scroll (IntersectionObserver, escalonadas 80 ms), cifras que cuentan hasta su valor, navegación con texto que rueda al pasar el mouse, subrayado que crece y entrada suave de banner, menús y diálogos. Todo se desactiva con `prefers-reduced-motion` |
+
+Las animaciones no usan librerías: son CSS (`src/index.css`) más dos componentes (`Revelar`, `TituloRevelado`) y un hook (`useContador`).
 
 ---
 
