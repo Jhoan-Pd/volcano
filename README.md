@@ -320,7 +320,7 @@ git push origin --all               # sube también las ramas de cada funcionali
 git push origin --tags              # sube v0.5.0, v0.8.0 y v1.0.0
 ```
 
-> Si antes desplegaste el portal estático de SentinelaIA en Vercel desde este repositorio, ese proyecto usaba `public/` en la raíz. Ese código ahora está en `legacy/sentinelaia/`: cambia el **Root Directory** del proyecto de Vercel a `frontend` (paso 3) o crea un proyecto nuevo.
+> Si ya tenías el portal de SentinelaIA desplegado en Vercel desde este repositorio, no hay que cambiar nada en Vercel: el `vercel.json` de la raíz ahora compila `frontend/` y publica `frontend/dist`. Solo agrega la variable `VITE_API_URL` (paso 3) y vuelve a desplegar.
 
 ### Paso 1 · Base de datos en Neon (recomendado)
 
@@ -361,7 +361,7 @@ git push origin --tags              # sube v0.5.0, v0.8.0 y v1.0.0
 ### Paso 3 · Frontend en Vercel
 
 1. <https://vercel.com> → **Sign up** con GitHub → **Add New → Project** → importa el repositorio.
-2. **Root Directory**: `frontend`. Vercel detecta Vite; `vercel.json` ya define el build y las rutas del SPA.
+2. **Root Directory**: déjalo en la raíz del repositorio (`./`) o ponlo en `frontend`; funciona de las dos formas, porque hay un `vercel.json` en la raíz (instala y compila `frontend/` y publica `frontend/dist`) y otro dentro de `frontend/`. Ambos definen las rutas del SPA.
 3. **Environment Variables**: `VITE_API_URL` = `https://predictor-brotes-api.onrender.com`, sin `/` final.
 4. **Deploy**. Obtendrás una URL como `https://sentinela-predictor.vercel.app`.
 
