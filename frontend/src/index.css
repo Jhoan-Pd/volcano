@@ -193,3 +193,9 @@ body { transition: background-color 0.52s var(--ease-fondo), color 0.52s var(--e
   .revelar { opacity: 1; transform: none; }
   .mascara > span { transform: none; }
 }
+
+/* Al imprimir o guardar como PDF desde el navegador no hay scroll: se muestra todo de una vez */
+@media print {
+  .revelar { opacity: 1; transform: none; transition: none; }
+  .mascara > span { transform: none; animation: none; }
+}
