@@ -14,7 +14,6 @@ Formatos (encabezados obligatorios en la primera fila; separador , o ;):
 import csv
 import io
 from abc import ABC, abstractmethod
-from collections import defaultdict
 from datetime import date
 
 from sqlalchemy import func, select
@@ -26,7 +25,8 @@ from app.models import (
 )
 from app.models.enums import NivelVolcanico, TipoEventoVolcanico
 from app.repositories.repos import (
-    CasoOficialRepository, EnfermedadRepository, MunicipioRepository, RegistroClimaRepository, TendenciaRepository,
+    CasoOficialRepository, EnfermedadRepository, EventoVolcanicoRepository, MunicipioRepository,
+    RegistroClimaRepository, TendenciaRepository,
 )
 from app.schemas.datos import ErrorFila, EstadoDatos, EstadoFuente, ResultadoImportacion
 
@@ -124,17 +124,9 @@ class ImportadorClima(Importador):
         return fila
 
     def guardar(self, filas):
-        repo = RegistroClimaRepository(self.db)
-        por_municipio: dict[int, list[dict]] = defaultdict(list)
-        for f in filas:
-            por_municipio[f.pop("municipio_id")].append(f)
-        existentes = 0
-        for mid, lote in por_municipio.items():
-            fechas = [f["fecha"] for f in lote]
-            existentes += self.db.scalar(select(func.count()).select_from(RegistroClima).where(
-                RegistroClima.municipio_id == mid, RegistroClima.fecha.in_(fechas))) or 0
-            repo.upsert_lote(mid, lote)
-        return len(filas) - existentes, existentes
+        return RegistroClimaRepository(self.db).upsert(filas, ("municipio_id", "fecha"), [
+            RegistroClima.municipio_id.in_({f["municipio_id"] for f in filas}),
+            RegistroClima.fecha.in_({f["fecha"] for f in filas})])
 
 
 class ImportadorEventos(Importador):
@@ -159,21 +151,10 @@ class ImportadorEventos(Importador):
                 "descripcion": (f.get("descripcion") or "").strip() or None, "es_simulado": False}
 
     def guardar(self, filas):
-        insertadas = actualizadas = 0
-        for f in filas:
-            actual = self.db.scalars(select(EventoVolcanico).where(
-                EventoVolcanico.tipo == f["tipo"], EventoVolcanico.fecha_inicio == f["fecha_inicio"],
-                EventoVolcanico.municipio_id.is_(None) if f["municipio_id"] is None
-                else EventoVolcanico.municipio_id == f["municipio_id"])).first()
-            if actual is None:
-                self.db.add(EventoVolcanico(**f))
-                insertadas += 1
-            else:
-                for k, v in f.items():
-                    setattr(actual, k, v)
-                actualizadas += 1
-        self.db.commit()
-        return insertadas, actualizadas
+        # Clave natural: un evento por tipo, fecha y municipio (o ninguno, para los boletines)
+        return EventoVolcanicoRepository(self.db).upsert(
+            filas, ("tipo", "fecha_inicio", "municipio_id"),
+            [EventoVolcanico.fecha_inicio.in_({f["fecha_inicio"] for f in filas})])
 
 
 class ImportadorTendencias(Importador):
@@ -193,7 +174,8 @@ class ImportadorTendencias(Importador):
                 "indice": indice, "fuente": "csv", "es_simulado": False}
 
     def guardar(self, filas):
-        return TendenciaRepository(self.db).upsert_lote(filas), 0
+        return TendenciaRepository(self.db).upsert(filas, ("termino", "region", "anio", "semana_epi"),
+                                                   [TendenciaBusqueda.termino.in_({f["termino"] for f in filas})])
 
 
 IMPORTADORES: dict[str, type[Importador]] = {

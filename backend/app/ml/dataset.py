@@ -22,7 +22,7 @@ from sqlalchemy import select
 
 from app.core.epi import desplazar, iterar_semanas, semana_de
 from app.fuentes.farmacia import FarmaciaFuente
-from app.models import CasoOficial, Enfermedad, EventoVolcanico, Municipio, RegistroClima
+from app.models import CasoOficial, Enfermedad, EventoVolcanico, RegistroClima
 from app.repositories.repos import MunicipioRepository
 from app.services.tendencia_service import TendenciaService
 
