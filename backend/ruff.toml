@@ -1,0 +1,35 @@
+# Linter y reglas de estilo del backend: `ruff check app tests`
+line-length = 120
+target-version = "py312"
+
+[lint]
+select = [
+  "E", "W", "F",   # pycodestyle y pyflakes: errores y nombres sin usar
+  "B",             # bugbear: errores frecuentes (closures en bucles, zip sin strict…)
+  "SIM",           # simplificaciones
+  "C90",           # complejidad ciclomática
+  "UP",            # sintaxis moderna de Python 3.12
+  "N",             # convenciones de nombres
+  "PERF",          # rendimiento
+  "PL",            # pylint
+  "RUF",           # reglas propias de ruff
+  "I",             # orden de imports
+]
+ignore = [
+  "B008",     # FastAPI usa Depends()/Query() como valor por defecto a propósito
+  "N803", "N806",  # X/y en mayúscula: convención de scikit-learn para matrices de variables
+  "RUF001", "RUF002", "RUF003",  # signos tipográficos del español (−, «», …) en textos
+  "PLR2004",  # valores literales en comparaciones: aquí son umbrales con nombre en el contexto
+]
+
+[lint.mccabe]
+max-complexity = 12
+
+[lint.pylint]
+max-args = 8
+max-positional-args = 8
+max-statements = 60
+
+[lint.per-file-ignores]
+"tests/*" = ["PLC0415", "PLR0913", "PLR0917"]  # en pruebas se importa dentro de la función a propósito
+"alembic/*" = ["E501"]
