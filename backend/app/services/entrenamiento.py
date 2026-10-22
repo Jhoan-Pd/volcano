@@ -15,6 +15,7 @@ from datetime import UTC, datetime
 
 from app.core.errors import ConflictoError
 from app.db.session import SessionLocal
+from app.ml.progreso import Etapa, EventoProgreso, Progreso, escalar, sin_progreso
 from app.schemas.modelo import EstadoEntrenamiento
 from app.services.alerta_service import AlertaService
 from app.services.prediccion_service import PrediccionService
@@ -54,18 +55,24 @@ class ControlEntrenamiento:
 control = ControlEntrenamiento()
 
 
-def reentrenar(enfermedad_id: int | None = None) -> None:
+def reentrenar(enfermedad_id: int | None = None, progreso: Progreso = sin_progreso) -> None:
     """Entrena, regenera predicciones y recalcula alertas. Pensado para correr en segundo plano:
-    nunca lanza excepciones; el resultado (o el error) queda en `control.estado()`."""
+    nunca lanza excepciones; el resultado (o el error) queda en `control.estado()` y, si se pasa
+    `progreso`, también se avisa cada paso (el motor gRPC lo transmite en vivo)."""
+    progreso(EventoProgreso(Etapa.INICIO, "Entrenamiento iniciado", 0.0))
     try:
         with SessionLocal() as db:
-            modelos, errores = PrediccionService(db).entrenar(enfermedad_id)
+            modelos, errores = PrediccionService(db).entrenar(enfermedad_id, escalar(progreso, 0.0, 0.95))
+            progreso(EventoProgreso(Etapa.ALERTAS, "Recalculando alertas tempranas", 0.95))
             alertas = AlertaService(db).evaluar()
-        control.terminar(f"{len(modelos)} modelo(s) entrenado(s) y predicciones actualizadas; "
-                         f"{alertas.activas} alerta(s) activa(s), {alertas.nuevas} nueva(s)", errores)
+        mensaje = (f"{len(modelos)} modelo(s) entrenado(s) y predicciones actualizadas; "
+                   f"{alertas.activas} alerta(s) activa(s), {alertas.nuevas} nueva(s)")
+        control.terminar(mensaje, errores)
+        progreso(EventoProgreso(Etapa.FIN, mensaje, 1.0))
     except Exception as exc:
         logger.exception("Falló el reentrenamiento")
         control.terminar("El entrenamiento falló", [str(exc)])
+        progreso(EventoProgreso(Etapa.ERROR, f"El entrenamiento falló: {exc}", 1.0))
 
 
 def lanzar_en_hilo(enfermedad_id: int | None = None, nombre: str = "reentrenamiento") -> EstadoEntrenamiento:
