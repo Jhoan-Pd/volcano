@@ -54,6 +54,15 @@ class Settings(BaseSettings):
     # Modelo predictivo: si no hay modelos entrenados, entrenarlos en segundo plano al arrancar
     ENTRENAR_AL_INICIO: bool = True
 
+    # Motor de predicción gRPC (proceso aparte en el mismo servicio de Render; solo escucha en 127.0.0.1).
+    # La API REST es su único cliente y se identifica con un token compartido en los metadatos.
+    MOTOR_GRPC_DIRECCION: str = "127.0.0.1:50051"
+    MOTOR_GRPC_TOKEN: str = "token-interno-del-motor-cambialo"
+    MOTOR_GRPC_TIMEOUT_S: float = 15.0
+    MOTOR_GRPC_HILOS: int = 32
+    MOTOR_INTERVALO_ALERTAS_S: float = 10.0  # cada cuánto el motor revisa si cambiaron las alertas
+    MOTOR_CACHE_TTL_S: float = 900.0  # el dataset en memoria se reconstruye al menos cada 15 min
+
     # Google Trends (pytrends no es oficial: puede fallar o bloquearse; hay caché en BD y CSV de respaldo)
     TRENDS_HABILITADO: bool = True
     TRENDS_REGION: str = "CO-NAR"
