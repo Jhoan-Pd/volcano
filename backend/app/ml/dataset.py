@@ -84,7 +84,7 @@ class ConstructorDataset:
         return {k: float(np.mean(v)) for k, v in so2.items()}, ceniza
 
     def _farmacia(self, enf: Enfermedad) -> dict[tuple[int, int, int], float]:
-        cats = [c.strip() for c in (enf.categorias_farmacia or "").split(",") if c.strip()]
+        cats = enf.lista_categorias_farmacia
         if not cats:
             return {}
         acum: dict[tuple[int, int, int], list[float]] = defaultdict(list)

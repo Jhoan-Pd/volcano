@@ -1,6 +1,7 @@
 from sqlalchemy import Boolean, Float, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.core.texto import separar_lista
 from app.db.base import Base, TimestampMixin
 
 
@@ -39,3 +40,20 @@ class Enfermedad(TimestampMixin, Base):
     umbral_naranja_pct: Mapped[int] = mapped_column(Integer, default=75, nullable=False)
     umbral_rojo_pct: Mapped[int] = mapped_column(Integer, default=90, nullable=False)
     activo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    # Las columnas guardan listas separadas por coma; estas propiedades las exponen ya separadas
+    @property
+    def lista_terminos(self) -> list[str]:
+        return separar_lista(self.terminos_busqueda, str.lower)
+
+    @property
+    def lista_codigos_sivigila(self) -> list[str]:
+        return separar_lista(self.codigos_sivigila)
+
+    @property
+    def lista_categorias_farmacia(self) -> list[str]:
+        return separar_lista(self.categorias_farmacia, str.upper)
+
+    @property
+    def lista_recomendaciones(self) -> list[str]:
+        return [r.strip() for r in (self.recomendaciones or "").splitlines() if r.strip()]

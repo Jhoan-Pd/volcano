@@ -25,12 +25,15 @@ from app.notificaciones.correo import NotificadorCorreo, html_alertas, notificad
 from app.repositories.repos import EnfermedadRepository, MunicipioRepository
 from app.schemas.alerta import AlertaOut, ResultadoEvaluacion
 from app.schemas.comun import Pagina
-from app.services import riesgo_service as rs
 
 logger = logging.getLogger("predictor.alertas")
 
 NIVELES_ALERTA = (NivelRiesgo.NARANJA.value, NivelRiesgo.ROJO.value)
-TEXTO_NIVEL = {"NARANJA": "Riesgo alto", "ROJO": "Riesgo muy alto"}
+
+
+def texto_nivel(nivel: str) -> str:
+    """«Riesgo alto», «Riesgo muy alto»…"""
+    return f"Riesgo {NivelRiesgo(nivel).etiqueta.lower()}"
 
 
 @dataclass
@@ -82,17 +85,17 @@ class AlertaService:
                         m.id, enf.id, anio, semana, r.nivel, "OBSERVADO",
                         f"{enf.nombre} en {m.nombre}: {r.casos} casos en la semana {etiqueta(anio, semana)}, "
                         f"por encima del percentil {enf.umbral_naranja_pct if r.nivel == 'NARANJA' else enf.umbral_rojo_pct} "
-                        f"de los últimos 5 años ({TEXTO_NIVEL[r.nivel].lower()})."))
+                        f"de los últimos 5 años ({texto_nivel(r.nivel).lower()})."))
                 if modelo is None:
                     continue
                 preds = [p for p in pred._ultimas(modelo.id, m.id) if p.nivel_riesgo in NIVELES_ALERTA]
                 if preds:
-                    p = max(preds, key=lambda x: (rs.ORDEN_NIVELES.index(NivelRiesgo(x.nivel_riesgo)), x.casos_esperados))
+                    p = max(preds, key=lambda x: (NivelRiesgo(x.nivel_riesgo).rango, x.casos_esperados))
                     salida.append(_Candidata(
                         m.id, enf.id, p.anio, p.semana_epi, p.nivel_riesgo, "PREDICHO",
                         f"{enf.nombre} en {m.nombre}: el modelo espera {p.casos_esperados:.0f} casos "
                         f"(entre {p.limite_inferior:.0f} y {p.limite_superior:.0f}) en la semana "
-                        f"{etiqueta(p.anio, p.semana_epi)} ({TEXTO_NIVEL[p.nivel_riesgo].lower()}).",
+                        f"{etiqueta(p.anio, p.semana_epi)} ({texto_nivel(p.nivel_riesgo).lower()}).",
                         prediccion_id=p.id))
         return salida
 
@@ -112,8 +115,7 @@ class AlertaService:
         for c in candidatas:
             clave = (c.municipio_id, c.enfermedad_id, c.anio, c.semana_epi, c.origen)
             a = existentes.get(clave)
-            sube = a is not None and (rs.ORDEN_NIVELES.index(NivelRiesgo(c.nivel))
-                                      > rs.ORDEN_NIVELES.index(NivelRiesgo(a.nivel_riesgo)))
+            sube = a is not None and NivelRiesgo(c.nivel).rango > NivelRiesgo(a.nivel_riesgo).rango
             if a is None:
                 a = Alerta(municipio_id=c.municipio_id, enfermedad_id=c.enfermedad_id, prediccion_id=c.prediccion_id,
                            anio=c.anio, semana_epi=c.semana_epi, nivel_riesgo=c.nivel, origen=c.origen,
@@ -170,7 +172,7 @@ class AlertaService:
             return 0
         notificadas: set[int] = set()
         for destinatarios, alertas in self._envios(pendientes):
-            filas = [{"nivel": a.nivel_riesgo, "nivel_texto": TEXTO_NIVEL.get(a.nivel_riesgo, a.nivel_riesgo),
+            filas = [{"nivel": a.nivel_riesgo, "nivel_texto": texto_nivel(a.nivel_riesgo),
                       "mensaje": a.mensaje} for a in alertas]
             hay_rojo = any(a.nivel_riesgo == "ROJO" for a in alertas)
             asunto = f"{'🔴' if hay_rojo else '🟠'} {len(alertas)} alerta(s) temprana(s) de brotes en Nariño"

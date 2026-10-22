@@ -217,10 +217,6 @@ def _casos_por_municipio(db) -> dict[int, dict[str, dict[tuple[int, int], int]]]
     return salida
 
 
-def _lista(texto: str | None) -> list[str]:
-    return [t.strip() for t in (texto or "").split(",") if t.strip()]
-
-
 def seed_tendencias(db) -> None:
     """Búsquedas simuladas (Google Trends CO-NAR) coherentes con los casos ya cargados."""
     if _hay(db, TendenciaBusqueda) or not _hay(db, CasoOficial):
@@ -232,7 +228,7 @@ def seed_tendencias(db) -> None:
             destino = departamento.setdefault(cod, {})
             for k, v in serie.items():
                 destino[k] = destino.get(k, 0) + v
-    terminos = {e.codigo: [t.lower() for t in _lista(e.terminos_busqueda)] for e in db.scalars(select(Enfermedad))}
+    terminos = {e.codigo: e.lista_terminos for e in db.scalars(select(Enfermedad))}
     filas = generar_tendencias(casos=departamento, terminos=terminos, desde=(settings.SEED_ANIO_INICIO, 1),
                                hasta=ultima_semana_completa(), semilla=SEMILLA + 7)
     db.execute(insert(TendenciaBusqueda), filas)
@@ -247,7 +243,7 @@ def seed_reportes_farmacia(db) -> None:
     altitudes = {m.id: m.altitud_m for m in db.scalars(select(Municipio))}
     farmacias = [{"id": f.id, "municipio_id": f.municipio_id, "altitud_m": altitudes.get(f.municipio_id)}
                  for f in db.scalars(select(Farmacia).order_by(Farmacia.id))]
-    categorias = {e.codigo: _lista(e.categorias_farmacia) for e in db.scalars(select(Enfermedad))}
+    categorias = {e.codigo: e.lista_categorias_farmacia for e in db.scalars(select(Enfermedad))}
     filas = generar_reportes_farmacia(farmacias=farmacias, casos=_casos_por_municipio(db), categorias=categorias,
                                       desde=(settings.SEED_ANIO_INICIO, 1), hasta=ultima_semana_completa(),
                                       semilla=SEMILLA + 11)

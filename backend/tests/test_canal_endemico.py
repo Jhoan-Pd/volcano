@@ -37,6 +37,8 @@ def test_semanas_referencia_maneja_semana_53():
     assert all(a < 2026 or (a == 2026 and s == 1) for a, s in pares)
 
 
-def test_nivel_maximo():
-    assert rs.nivel_maximo(["VERDE", "NARANJA", "AMARILLO"]) == "NARANJA"
-    assert rs.nivel_maximo([]) == "VERDE"
+def test_nivel_peor_y_etiquetas():
+    assert NivelRiesgo.peor(["VERDE", "NARANJA", "AMARILLO"]) == NivelRiesgo.NARANJA
+    assert NivelRiesgo.peor([]) == NivelRiesgo.VERDE
+    assert NivelRiesgo.ROJO.rango > NivelRiesgo.NARANJA.rango > NivelRiesgo.VERDE.rango
+    assert [n.etiqueta for n in NivelRiesgo] == ["Bajo", "Moderado", "Alto", "Muy alto"]
