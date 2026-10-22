@@ -3,7 +3,7 @@ from datetime import date
 
 import pytest
 
-from app.services import actualizacion_service as act
+from app.services import entrenamiento
 from app.services.actualizacion_service import ActualizacionService
 
 CRON = {"X-Cron-Secret": "cron-de-pruebas"}
@@ -34,7 +34,8 @@ def fuentes_falsas(monkeypatch):
     monkeypatch.setattr(ClimaService, "sincronizar", clima)
     monkeypatch.setattr(TendenciaService, "sincronizar", trends)
     monkeypatch.setattr(SivigilaService, "sincronizar", sivigila)
-    monkeypatch.setattr(act.threading, "Thread", lambda **kw: type("H", (), {"start": lambda self: llamadas.append("hilo")})())
+    monkeypatch.setattr(entrenamiento.threading, "Thread",
+                        lambda **kw: type("H", (), {"start": lambda self: llamadas.append("hilo")})())
     return llamadas
 
 
@@ -54,15 +55,26 @@ def test_un_paso_fallido_no_detiene_los_demas(client, fuentes_falsas):
 
 
 def test_los_lunes_se_descarga_sivigila_y_se_reentrena(db, fuentes_falsas):
-    from app.services import prediccion_service as ps
-
     lunes = date(2026, 10, 5)
     res = ActualizacionService(db, hoy=lunes).ejecutar()
     pasos = [p["paso"] for p in res["pasos"]]
     assert pasos == ["clima", "tendencias", "sivigila", "reentrenar"]  # las alertas se evalúan al terminar el hilo
     assert "hilo" in fuentes_falsas
-    ps._estado = ps.EstadoEntrenamiento(en_curso=False)  # deja libre el candado para otras pruebas
+    entrenamiento.control.reiniciar()  # deja libre el candado para otras pruebas
 
     martes = date(2026, 10, 6)
     pasos = [p["paso"] for p in ActualizacionService(db, hoy=martes).ejecutar(reentrenar="no")["pasos"]]
     assert pasos == ["clima", "tendencias", "predicciones", "alertas"]
+
+
+def test_control_de_entrenamiento_impide_dos_a_la_vez():
+    from app.core.errors import ConflictoError
+
+    control = entrenamiento.ControlEntrenamiento()
+    assert control.iniciar().en_curso
+    with pytest.raises(ConflictoError):
+        control.iniciar()
+    control.terminar("listo", ["IRA: sin datos"])
+    estado = control.estado()
+    assert not estado.en_curso and estado.mensaje == "listo" and estado.errores == ["IRA: sin datos"]
+    assert estado.inicio is not None and estado.fin >= estado.inicio
