@@ -9,16 +9,16 @@ import logging
 from collections import defaultdict
 from datetime import UTC, datetime
 
-import numpy as np
 import pandas as pd
 from sqlalchemy import delete, select, update
 
 from app.core.epi import desplazar, etiqueta, inicio_semana
 from app.core.errors import NoEncontradoError
 from app.core.texto import numero_es
-from app.ml.dataset import FEATURES, HORIZONTES, ConstructorDataset, ultima_fila_por_municipio
+from app.ml.dataset import ConstructorDataset
 from app.ml.entrenador import DatosInsuficientesError, Entrenador
 from app.ml.explicador import explicar
+from app.ml.pronostico import Pronosticador
 from app.models import Enfermedad, ModeloEntrenado, Municipio, Prediccion
 from app.models.enums import NivelRiesgo
 from app.repositories.repos import EnfermedadRepository
@@ -33,7 +33,6 @@ from app.schemas.modelo import (
     PuntoPrediccion,
     ResumenPrediccion,
 )
-from app.services import riesgo_service as rs
 
 logger = logging.getLogger("predictor.modelo")
 
@@ -124,37 +123,24 @@ class PrediccionService:
             df = ConstructorDataset(self.db).construir(enf)
         if df.empty:
             return 0
-        art = Entrenador.deserializar(modelo.artefacto)
-        medianas, cuantiles = art["medianas"], art["cuantiles"]
+        pron = Pronosticador(enf, Entrenador.deserializar(modelo.artefacto), df)
         terminos, categorias = enf.lista_terminos, enf.lista_categorias_farmacia
         nuevas = 0
-        for _, fila in ultima_fila_por_municipio(df).iterrows():
-            mid = int(fila["municipio_id"])
-            serie = {(int(a), int(s)): c for a, s, c in
-                     df.loc[df["municipio_id"] == mid, ["anio", "semana_epi", "casos"]].itertuples(index=False)}
-            X = pd.DataFrame([fila[FEATURES].astype(float)], columns=FEATURES)
-            # "Valor típico" del propio municipio (Pasto a 2 527 m no se compara con Consacá a 1 730 m)
-            tipicos = df.loc[df["municipio_id"] == mid, FEATURES].median()
-            med_m = {f: (medianas.get(f) if pd.isna(v) else float(v)) for f, v in tipicos.items()}
-            for h in HORIZONTES:
-                est = art["modelos"][h]
-                p_log = float(est.predecir_log(X)[0])
-                q10, q90 = cuantiles[str(h)]
-                esperado = max(float(np.expm1(p_log)), 0.0)
-                a, s = desplazar(int(fila["anio"]), int(fila["semana_epi"]), h)
-                u = rs.calcular_umbrales([serie[p] for p in rs.semanas_referencia(a, s) if p in serie],
-                                         enf.umbral_amarillo_pct, enf.umbral_naranja_pct, enf.umbral_rojo_pct)
+        for mid in pron.municipios():
+            X, fila, tipicos = pron.entrada(mid), pron.fila(mid), pron.tipicos(mid)
+            for punto in pron.pronosticar(mid, X):
                 self.db.execute(delete(Prediccion).where(
-                    Prediccion.modelo_id == modelo.id, Prediccion.municipio_id == mid, Prediccion.anio == a,
-                    Prediccion.semana_epi == s, Prediccion.horizonte == h))
-                exp = explicar(est, X, fila, med_m, terminos, categorias)
+                    Prediccion.modelo_id == modelo.id, Prediccion.municipio_id == mid,
+                    Prediccion.anio == punto.anio, Prediccion.semana_epi == punto.semana_epi,
+                    Prediccion.horizonte == punto.horizonte))
+                exp = explicar(pron.estimador(punto.horizonte), X, fila, tipicos, terminos, categorias)
+                u = punto.umbrales
                 exp["umbrales"] = {"amarillo": u.amarillo, "naranja": u.naranja, "rojo": u.rojo} if u else None
                 self.db.add(Prediccion(
-                    modelo_id=modelo.id, municipio_id=mid, enfermedad_id=enf.id, anio=a, semana_epi=s, horizonte=h,
-                    casos_esperados=round(esperado, 2),
-                    limite_inferior=round(max(float(np.expm1(p_log + q10)), 0.0), 2),
-                    limite_superior=round(max(float(np.expm1(p_log + q90)), 0.0), 2),
-                    nivel_riesgo=rs.clasificar(esperado, u).value, explicacion=exp,
+                    modelo_id=modelo.id, municipio_id=mid, enfermedad_id=enf.id, anio=punto.anio,
+                    semana_epi=punto.semana_epi, horizonte=punto.horizonte, casos_esperados=punto.casos_esperados,
+                    limite_inferior=punto.limite_inferior, limite_superior=punto.limite_superior,
+                    nivel_riesgo=punto.nivel.value, explicacion=exp,
                 ))
                 nuevas += 1
         self.db.commit()
