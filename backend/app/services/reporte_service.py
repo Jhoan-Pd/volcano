@@ -21,13 +21,14 @@ from sqlalchemy import select
 
 from app.core.epi import etiqueta, inicio_semana
 from app.core.errors import NoEncontradoError
+from app.core.texto import numero_es
 from app.models import Alerta, CasoOficial, Enfermedad, Municipio
+from app.models.enums import NivelRiesgo
 from app.repositories.repos import EnfermedadRepository
 from app.services.alerta_service import AlertaService
 from app.services.dashboard_service import DashboardService
 from app.services.prediccion_service import PrediccionService
 
-TEXTO_NIVEL = {"VERDE": "Bajo", "AMARILLO": "Moderado", "NARANJA": "Alto", "ROJO": "Muy alto"}
 # Tinta legible sobre blanco para cada nivel (los colores de relleno no tienen contraste suficiente como texto)
 COLOR_NIVEL = {"VERDE": "#0a6b0a", "AMARILLO": "#8a5a00", "NARANJA": "#9e3f17", "ROJO": "#a52222"}
 TINTA = colors.HexColor("#171614")
@@ -44,10 +45,7 @@ def _csv(encabezados: list[str], filas) -> bytes:
 
 
 def _num(v: float | None, dec: int = 1) -> str:
-    if v is None:
-        return "—"
-    texto = f"{v:,.{dec}f}"  # 1,234.5 → 1.234,5
-    return texto.replace(",", "§").replace(".", ",").replace("§", ".")
+    return numero_es(v, dec, miles=True)
 
 
 class ReporteService:
@@ -140,10 +138,10 @@ class ReporteService:
         estilos_tabla = []
         for i, r in enumerate(resumen.riesgos, start=1):
             p = r.prediccion
-            filas.append([Paragraph(r.nombre, normal), str(r.casos), TEXTO_NIVEL[r.nivel],
+            filas.append([Paragraph(r.nombre, normal), str(r.casos), NivelRiesgo(r.nivel).etiqueta,
                           f"{_num(p.casos_esperados_h1)} ({_num(p.limite_inferior_h1, 0)}–{_num(p.limite_superior_h1, 0)})"
                           if p else "Sin modelo",
-                          TEXTO_NIVEL.get(p.nivel_max, "—") if p else "—"])
+                          NivelRiesgo(p.nivel_max).etiqueta if p else "—"])
             estilos_tabla.append(("TEXTCOLOR", (2, i), (2, i), colors.HexColor(COLOR_NIVEL[r.nivel])))
             if p:
                 estilos_tabla.append(("TEXTCOLOR", (4, i), (4, i), colors.HexColor(COLOR_NIVEL[p.nivel_max])))
@@ -167,7 +165,7 @@ class ReporteService:
         bloque = [Paragraph("Alertas activas", h2)]
         if alertas:
             bloque.append(self._tabla([["Nivel", "Origen", "Detalle"]] + [
-                [TEXTO_NIVEL[a.nivel_riesgo], a.origen.capitalize(), Paragraph(a.mensaje, normal)] for a in alertas],
+                [NivelRiesgo(a.nivel_riesgo).etiqueta, a.origen.capitalize(), Paragraph(a.mensaje, normal)] for a in alertas],
                 [2.2 * cm, 2.4 * cm, 12.3 * cm]))
         else:
             bloque.append(Paragraph("No hay alertas activas para este municipio.", normal))
@@ -263,7 +261,7 @@ class ReporteService:
         lp.yValueAxis.valueMin, lp.yValueAxis.valueMax = 0, tope
         lp.yValueAxis.labels.fontSize, lp.yValueAxis.labels.fillColor = 6.5, GRIS
         lp.yValueAxis.strokeColor = LINEA
-        lp.yValueAxis.labelTextFormat = (lambda v: f"{v:.0f}") if tope >= 6 else (lambda v: f"{v:.1f}".replace(".", ","))
+        lp.yValueAxis.labelTextFormat = (lambda v: f"{v:.0f}") if tope >= 6 else (lambda v: numero_es(v, 1))
         lp.yValueAxis.labels.fontName = "Helvetica"
         d.add(lp)
         if futuro:

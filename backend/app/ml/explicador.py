@@ -14,6 +14,7 @@ import math
 import numpy as np
 import pandas as pd
 
+from app.core.texto import numero_es
 from app.ml.dataset import GRUPOS
 
 
@@ -34,10 +35,6 @@ NOMBRES_CATEGORIA = {
 }
 
 
-def _num(v: float, dec: int = 1) -> str:
-    return f"{v:.{dec}f}".replace(".", ",")
-
-
 def _pct(v: float | None) -> str:
     return f"{'+' if v >= 0 else '−'}{abs(v):.0f} %"
 
@@ -54,7 +51,7 @@ def señales(fila: pd.Series, medianas: dict, terminos: list[str], categorias: l
         if media > 0.5:
             cambio = (actual / media - 1) * 100
             m["Casos recientes"] = (f"Los casos de la última semana ({actual:.0f}) están {_pct(cambio)} frente al "
-                                    f"promedio de las 8 semanas anteriores ({_num(media)}).")
+                                    f"promedio de las 8 semanas anteriores ({numero_es(media)}).")
     if _ok(fila.get("busq_var")):
         cambio = (fila["busq_var"] - 1) * 100
         m["Búsquedas en internet"] = (f"Las búsquedas en internet de «{', '.join(terminos)}» en Nariño están "
@@ -68,7 +65,7 @@ def señales(fila: pd.Series, medianas: dict, terminos: list[str], categorias: l
         partes.append(f"lluvia de las semanas previas {_pct((fila['lluvia_l2_6'] / medianas['lluvia_l2_6'] - 1) * 100)}")
     if _ok(fila.get("temp_l0")) and _ok(medianas.get("temp_l0")):
         partes.append(f"temperatura {'+' if fila['temp_l0'] >= medianas['temp_l0'] else '−'}"
-                      f"{_num(abs(fila['temp_l0'] - medianas['temp_l0']))} °C")
+                      f"{numero_es(abs(fila['temp_l0'] - medianas['temp_l0']))} °C")
     if partes:
         m["Clima"] = "Frente a lo típico: " + ", ".join(partes) + "."
     if _ok(fila.get("ceniza_l0_1")) and fila["ceniza_l0_1"] > 0:
@@ -80,7 +77,7 @@ def señales(fila: pd.Series, medianas: dict, terminos: list[str], categorias: l
             m["Actividad volcánica"] = f"La emisión de SO₂ del Galeras está {_pct(cambio)} frente a su mediana."
     if _ok(fila.get("y_anio_ant")):
         m["Estacionalidad"] = (f"En estas mismas semanas del año pasado hubo en promedio "
-                               f"{_num(math.expm1(fila['y_anio_ant']))} casos por semana.")
+                               f"{numero_es(math.expm1(fila['y_anio_ant']))} casos por semana.")
     return m
 
 
