@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { CloudRain, Droplets, ExternalLink, Lightbulb, Mountain, Thermometer, Wind } from "lucide-react";
-import type { ClimaActual, EstadoVolcan, Nivel, RiesgoEnfermedad, RiesgoMunicipio } from "../../api/tipos";
-import { fmtFecha, fmtNum, NIVELES_VOLCAN } from "../../lib/formato";
+import type { ClimaActual, EstadoVolcan, RiesgoEnfermedad, RiesgoMunicipio } from "../../api/tipos";
+import { fmtFecha, fmtNum, NIVELES_VOLCAN, rangoNivel } from "../../lib/formato";
 import { Card, CardHeader, NivelChip, SimuladoBadge, Spinner } from "../ui";
 
 export function VolcanCard({ v }: { v: EstadoVolcan }) {
@@ -90,7 +90,7 @@ export function RiesgoMunicipiosTabla({ filas, enfermedades, onSeleccionar, sele
               <td className="px-4 py-2.5 font-medium">{f.municipio}</td>
               {enfermedades.map((e) => (
                 <td key={e.codigo} className="px-1.5 py-2.5">
-                  <NivelChip nivel={((predicho ? f.detalle_predicho : f.detalle)[e.codigo] ?? "VERDE") as Nivel} />
+                  <NivelChip nivel={(predicho ? f.detalle_predicho : f.detalle)[e.codigo] ?? "VERDE"} />
                 </td>
               ))}
             </tr>
@@ -103,8 +103,7 @@ export function RiesgoMunicipiosTabla({ filas, enfermedades, onSeleccionar, sele
 
 export function Recomendaciones({ riesgos }: { riesgos: RiesgoEnfermedad[] }) {
   // Primero las enfermedades con mayor riesgo
-  const orden = { ROJO: 0, NARANJA: 1, AMARILLO: 2, VERDE: 3 } as const;
-  const lista = [...riesgos].sort((a, b) => orden[a.nivel] - orden[b.nivel]);
+  const lista = [...riesgos].sort((a, b) => rangoNivel(b.nivel) - rangoNivel(a.nivel));
   return (
     <div className="grid gap-3 px-5 pb-5 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
       {lista.map((r) => (

@@ -1,5 +1,5 @@
 import { Minus, TrendingDown, TrendingUp } from "lucide-react";
-import type { Nivel, RiesgoEnfermedad } from "../../api/tipos";
+import type { RiesgoEnfermedad } from "../../api/tipos";
 import { fmtNum, NIVELES } from "../../lib/formato";
 import { useContador } from "../../lib/useContador";
 import { useVisible } from "../Revelar";
@@ -69,7 +69,7 @@ export default function SemaforoCard({ r, activo, onClick }: { r: RiesgoEnfermed
           <>
             <div className="flex items-center justify-between gap-2">
               <span className="etiqueta text-muted">Próximas 4 semanas</span>
-              <NivelChip nivel={r.prediccion.nivel_max as Nivel} />
+              <NivelChip nivel={r.prediccion.nivel_max} />
             </div>
             <p className="mt-1 text-xs text-ink-2 tabular">
               S{r.semana_epi + 1 > 53 ? 1 : r.semana_epi + 1}: {fmtNum(r.prediccion.casos_esperados_h1, r.prediccion.casos_esperados_h1 < 10 ? 1 : 0)} casos

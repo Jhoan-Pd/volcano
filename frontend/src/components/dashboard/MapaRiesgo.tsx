@@ -4,11 +4,10 @@ import { useMemo } from "react";
 import { Circle, CircleMarker, MapContainer, Marker, Popup, TileLayer, Tooltip } from "react-leaflet";
 import type { Nivel, RiesgoMunicipio } from "../../api/tipos";
 import { useTema } from "../../context/ThemeContext";
-import { NIVELES } from "../../lib/formato";
+import { NIVELES, ORDEN_NIVELES, rangoNivel } from "../../lib/formato";
 
 // Cráter del Volcán Galeras (Servicio Geológico Colombiano)
 const GALERAS: [number, number] = [1.2208, -77.3592];
-const ORDEN: Nivel[] = ["VERDE", "AMARILLO", "NARANJA", "ROJO"];
 
 const iconoVolcan = L.divIcon({
   className: "",
@@ -24,8 +23,8 @@ export type ModoMapa = "actual" | "predicho";
 /** Nivel que se pinta para un municipio según el modo y la enfermedad elegida ("" = la peor). */
 export function nivelDe(f: RiesgoMunicipio, modo: ModoMapa, codigo: string): Nivel {
   const detalle = modo === "actual" ? f.detalle : f.detalle_predicho;
-  if (codigo) return (detalle[codigo] ?? "VERDE") as Nivel;
-  if (modo === "predicho") return (f.nivel_max_predicho ?? "VERDE") as Nivel;
+  if (codigo) return detalle[codigo] ?? "VERDE";
+  if (modo === "predicho") return f.nivel_max_predicho ?? "VERDE";
   return f.nivel_max;
 }
 
@@ -36,7 +35,7 @@ export default function MapaRiesgo({ filas, modo, codigo, enfermedades, seleccio
   const { tema } = useTema();
   const limites = useMemo(() => L.latLngBounds([...filas.map((f) => [f.latitud, f.longitud] as [number, number]), GALERAS]).pad(0.25), [filas]);
   // Los municipios con más riesgo se dibujan encima
-  const ordenadas = [...filas].sort((a, b) => ORDEN.indexOf(nivelDe(a, modo, codigo)) - ORDEN.indexOf(nivelDe(b, modo, codigo)));
+  const ordenadas = [...filas].sort((a, b) => rangoNivel(nivelDe(a, modo, codigo)) - rangoNivel(nivelDe(b, modo, codigo)));
 
   return (
     <div className="relative isolate h-80 overflow-hidden rounded-lg border border-line sm:h-[26rem]">
@@ -70,7 +69,7 @@ export default function MapaRiesgo({ filas, modo, codigo, enfermedades, seleccio
                     {enfermedades.map((e) => (
                       <tr key={e.codigo}>
                         <td className="pr-3">{e.nombre}</td>
-                        <td className="pr-3">{NIVELES[(f.detalle[e.codigo] ?? "VERDE") as Nivel].etiqueta}</td>
+                        <td className="pr-3">{NIVELES[f.detalle[e.codigo] ?? "VERDE"].etiqueta}</td>
                         <td>{f.detalle_predicho[e.codigo] ? NIVELES[f.detalle_predicho[e.codigo]].etiqueta : "—"}</td>
                       </tr>
                     ))}
@@ -83,7 +82,7 @@ export default function MapaRiesgo({ filas, modo, codigo, enfermedades, seleccio
       </MapContainer>
       <ul className="pointer-events-none absolute bottom-2 left-2 z-[1000] flex flex-wrap gap-x-3 gap-y-1 rounded-lg border border-line bg-surface/90 px-2.5 py-1.5 text-[11px] text-ink-2 backdrop-blur"
         aria-label="Leyenda del mapa">
-        {ORDEN.map((n) => (
+        {ORDEN_NIVELES.map((n) => (
           <li key={n} className="flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-full" style={{ background: NIVELES[n].color }} />{NIVELES[n].etiqueta}
           </li>
