@@ -1,0 +1,204 @@
+// Contrato del motor de predicción (servidor gRPC en Python).
+//
+// La API REST (FastAPI) es el cliente: el navegador nunca habla gRPC directamente, porque
+// los navegadores no exponen HTTP/2 con trailers y Render solo publica un puerto HTTP.
+// FastAPI traduce cada tipo de RPC al mecanismo web equivalente:
+//
+//   Tipo de RPC          Método                    Puente hacia el navegador
+//   ──────────────────── ───────────────────────── ───────────────────────────────
+//   Unary                Estado, Predecir          GET  → JSON
+//   Server streaming     Entrenar, SeguirAlertas   SSE  (text/event-stream)
+//   Client streaming     CargarReportesFarmacia    POST → el cliente envía un stream de filas
+//   Bidirectional        SimularEscenarios         WebSocket ↔ stream bidireccional
+//
+// Generar el código:  backend/scripts/generar_grpc.sh
+syntax = "proto3";
+
+package predictor.motor.v1;
+
+service MotorPrediccion {
+  // Unary: versión, modelos cargados en memoria y si hay un entrenamiento en curso.
+  rpc Estado (Vacio) returns (EstadoMotor);
+
+  // Unary: pronóstico de las próximas 4 semanas calculado al momento con el modelo en memoria.
+  rpc Predecir (SolicitudPrediccion) returns (Pronostico);
+
+  // Server streaming: entrena y envía el avance paso a paso (candidatos, modelo ganador,
+  // predicciones, alertas). El stream termina cuando acaba el entrenamiento.
+  rpc Entrenar (SolicitudEntrenamiento) returns (stream ProgresoEntrenamiento);
+
+  // Server streaming: primero las alertas activas y luego cada cambio (nueva, actualizada,
+  // cerrada) mientras el cliente siga conectado.
+  rpc SeguirAlertas (FiltroAlertas) returns (stream EventoAlerta);
+
+  // Client streaming: una farmacia envía su histórico fila por fila; el servidor valida
+  // cada fila al llegar, agrupa por semana y al final responde con un resumen.
+  rpc CargarReportesFarmacia (stream FilaReporteFarmacia) returns (ResumenCarga);
+
+  // Bidirectional streaming: el cliente envía escenarios «¿qué pasa si…?» (más lluvia,
+  // más búsquedas…) y por cada uno recibe de inmediato el pronóstico modificado.
+  rpc SimularEscenarios (stream Escenario) returns (stream ResultadoEscenario);
+}
+
+enum NivelRiesgo {
+  NIVEL_DESCONOCIDO = 0;
+  VERDE = 1;
+  AMARILLO = 2;
+  NARANJA = 3;
+  ROJO = 4;
+}
+
+message Vacio {}
+
+message EstadoMotor {
+  string version = 1;
+  int32 modelos_en_memoria = 2;
+  bool entrenando = 3;
+  double activo_desde_s = 4;      // segundos desde que arrancó el servidor
+  int64 rpcs_atendidas = 5;
+}
+
+// ── Unary: Predecir ─────────────────────────────────────────────────────────
+message SolicitudPrediccion {
+  int32 municipio_id = 1;
+  int32 enfermedad_id = 2;
+}
+
+message Umbrales {
+  double amarillo = 1;
+  double naranja = 2;
+  double rojo = 3;
+}
+
+message PuntoPronostico {
+  int32 anio = 1;
+  int32 semana_epi = 2;
+  string etiqueta = 3;            // "2026-S14"
+  int32 horizonte = 4;            // 1 a 4 semanas
+  double casos_esperados = 5;
+  double limite_inferior = 6;     // intervalo del 80 %
+  double limite_superior = 7;
+  NivelRiesgo nivel = 8;
+  optional Umbrales umbrales = 9;
+}
+
+message Pronostico {
+  int32 municipio_id = 1;
+  string municipio = 2;
+  int32 enfermedad_id = 3;
+  string enfermedad = 4;
+  string algoritmo = 5;
+  int32 modelo_id = 6;
+  string semana_base = 7;         // última semana con datos
+  NivelRiesgo nivel_max = 8;
+  repeated PuntoPronostico puntos = 9;
+  double duracion_ms = 10;        // tiempo de cálculo en el servidor
+  bool desde_cache = 11;          // el modelo ya estaba en memoria
+}
+
+// ── Server streaming: Entrenar ──────────────────────────────────────────────
+message SolicitudEntrenamiento {
+  optional int32 enfermedad_id = 1;   // vacío = todas
+}
+
+message ProgresoEntrenamiento {
+  enum Etapa {
+    ETAPA_DESCONOCIDA = 0;
+    INICIO = 1;
+    DATASET = 2;
+    CANDIDATO = 3;
+    MODELO_LISTO = 4;
+    PREDICCIONES = 5;
+    ALERTAS = 6;
+    AVISO = 7;
+    FIN = 8;
+    ERROR = 9;
+  }
+  Etapa etapa = 1;
+  string mensaje = 2;
+  double porcentaje = 3;          // 0 a 100
+  string enfermedad = 4;
+  string algoritmo = 5;
+  optional double mae = 6;
+  optional double mae_base = 7;
+}
+
+// ── Server streaming: SeguirAlertas ─────────────────────────────────────────
+message FiltroAlertas {
+  optional int32 municipio_id = 1;
+}
+
+message Alerta {
+  int32 id = 1;
+  int32 municipio_id = 2;
+  string municipio = 3;
+  int32 enfermedad_id = 4;
+  string enfermedad = 5;
+  string semana = 6;
+  NivelRiesgo nivel = 7;
+  string origen = 8;              // OBSERVADO | PREDICHO
+  string mensaje = 9;
+}
+
+message EventoAlerta {
+  enum Tipo {
+    TIPO_DESCONOCIDO = 0;
+    ACTIVA = 1;                   // ya estaba activa al conectarse
+    NUEVA = 2;
+    ACTUALIZADA = 3;
+    CERRADA = 4;
+  }
+  Tipo tipo = 1;
+  Alerta alerta = 2;
+  string momento = 3;             // ISO 8601, UTC
+}
+
+// ── Client streaming: CargarReportesFarmacia ────────────────────────────────
+message FilaReporteFarmacia {
+  int32 fila = 1;                 // número de fila en el CSV (para reportar errores)
+  optional int32 farmacia_id = 2; // solo ADMIN; una farmacia reporta por la suya
+  int32 anio = 3;
+  int32 semana_epi = 4;
+  string categoria = 5;
+  int32 unidades = 6;
+}
+
+message ErrorFila {
+  int32 fila = 1;
+  string mensaje = 2;
+}
+
+message ResumenCarga {
+  int32 filas_recibidas = 1;
+  int32 filas_rechazadas = 2;
+  int32 semanas_creadas = 3;
+  int32 semanas_actualizadas = 4;
+  int32 semanas_rechazadas = 5;
+  repeated ErrorFila errores = 6;
+}
+
+// ── Bidirectional: SimularEscenarios ────────────────────────────────────────
+message Escenario {
+  string id = 1;                  // lo elige el cliente; vuelve en la respuesta
+  int32 municipio_id = 2;
+  int32 enfermedad_id = 3;
+  double delta_temperatura_c = 4; // −5 a +5 °C
+  double cambio_lluvia_pct = 5;   // −100 a +200 %
+  double cambio_busquedas_pct = 6;
+  double cambio_farmacias_pct = 7;
+  bool ceniza = 8;                // caída de ceniza esta semana
+}
+
+message ResultadoEscenario {
+  string id = 1;
+  int32 municipio_id = 2;
+  int32 enfermedad_id = 3;
+  repeated PuntoPronostico base = 4;       // sin cambios
+  repeated PuntoPronostico escenario = 5;  // con los cambios
+  NivelRiesgo nivel_max = 6;
+  double variacion_pct = 7;       // casos totales del escenario frente a la base
+  string resumen = 8;
+  double duracion_ms = 9;
+  // Un escenario inválido no corta el stream: vuelve con este campo y los demás vacíos.
+  string error = 10;
+}
