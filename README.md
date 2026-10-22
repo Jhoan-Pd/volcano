@@ -20,7 +20,7 @@ Plataforma web que cruza **datos públicos** (clima, búsquedas de síntomas en 
 |---|---|---|---|
 | `v0.5.0` | **1 · Revisión del 50 %** | Estructura, BD con 13 tablas + migraciones + seed, auth JWT con roles, Open-Meteo, CRUD admin, dashboard con gráficas, despliegue | ✅ |
 | `v0.8.0` | **2** | Google Trends (pytrends + caché + CSV), SIVIGILA (Socrata), módulo de farmacias, modelo predictivo (promedio móvil vs. Random Forest/Gradient Boosting), semáforo predictivo, carga de CSV | ✅ |
-| `v1.0.0` | **3** | Alertas (banner + correo con Resend), mapa Leaflet, explicabilidad, reportes PDF/CSV, cron diario, CI, 76 pruebas, README final | ✅ |
+| `v1.0.0` | **3** | Alertas (banner + correo con Resend), mapa Leaflet, explicabilidad, reportes PDF/CSV, cron diario, CI, pruebas, README final | ✅ |
 
 Cada versión es una etiqueta (*tag*) de git. El historial completo de ramas y commits está descrito en [Trazabilidad](#trazabilidad-del-desarrollo-git).
 
@@ -77,7 +77,7 @@ sentinela-predictor/
 │   │   └── seed/                  # python -m app.seed  (catálogo, generadores, CSV)
 │   ├── alembic/versions/          # 0001 esquema · 0002 mapeos de fuentes · 0003 alertas
 │   ├── data/trends/               # CSV de respaldo de Google Trends
-│   ├── tests/                     # 76 pruebas pytest
+│   ├── tests/                     # 89 pruebas pytest
 │   └── requirements.txt · requirements-dev.txt · .env.example
 └── frontend/
     ├── src/
@@ -254,7 +254,8 @@ npm run dev                         # http://localhost:5173
 
 ```powershell
 cd backend
-pytest                              # 76 pruebas
+pytest                              # 89 pruebas
+ruff check app tests                # calidad de código (0 hallazgos)
 ```
 
 | Archivo | Qué prueba |
@@ -268,6 +269,7 @@ pytest                              # 76 pruebas
 | `test_jobs.py` | actualización diaria con fuentes falsas y pasos aislados |
 | `test_open_meteo.py`, `test_trends.py`, `test_sivigila.py` | adaptadores de fuentes con HTTP simulado, caché y respaldo CSV |
 | `test_farmacia.py`, `test_seed_senales.py`, `test_canal_endemico.py`, `test_migraciones.py` | módulo de farmacias, datos semilla, semáforo, `alembic check` |
+| `test_consultas.py`, `test_texto.py` | límite de consultas SQL (evita N+1), upsert genérico y utilidades de texto |
 
 ### Usuarios de demostración (creados por el seed)
 
@@ -439,6 +441,12 @@ La interfaz muestra la etiqueta **«Datos simulados»** donde corresponde y el p
 11. **Semana epidemiológica real.** Se usa `epiweeks` (semanas que inician en domingo, como el INS, con semana 53). El sistema anterior asumía 52 semanas fijas. También se corrigió el DIVIPOLA de La Florida (52299 → **52381**).
 12. **Dengue y altitud.** El *Aedes aegypti* casi no sobrevive por encima de ~1.800 m; por eso el riesgo de dengue se concentra en Consacá y Sandoná.
 13. **Visualización accesible.** El semáforo siempre combina icono + texto + color; ninguna gráfica tiene dos ejes Y; los colores son tokens con variantes para claro y oscuro; el mapa de Leaflet se carga aparte para no hacer más lento el dashboard.
+
+---
+
+## Revisión de código
+
+Se hizo una revisión en 5 rondas (duplicación, consultas N+1 y estructuras de datos, patrones y encapsulamiento, frontend, y linter con complejidad). El detalle, con métricas de antes y después, está en [`docs/REVISION_CODIGO.md`](docs/REVISION_CODIGO.md).
 
 ---
 
