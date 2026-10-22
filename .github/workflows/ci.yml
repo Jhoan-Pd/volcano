@@ -22,6 +22,8 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - name: Calidad de código (ruff)
         run: ruff check app tests
+      - name: El código gRPC generado coincide con prediccion.proto
+        run: bash scripts/generar_grpc.sh && git diff --exit-code app/motor/protos
       - name: Migraciones sobre una BD vacía
         env:
           DATABASE_URL: sqlite:///./ci.db

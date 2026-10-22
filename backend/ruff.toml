@@ -1,6 +1,8 @@
 # Linter y reglas de estilo del backend: `ruff check app tests`
 line-length = 120
 target-version = "py312"
+# Código generado por grpc_tools.protoc a partir de app/motor/protos/prediccion.proto
+extend-exclude = ["app/motor/protos/*_pb2*.py", "app/motor/protos/*_pb2*.pyi"]
 
 [lint]
 select = [
@@ -33,3 +35,5 @@ max-statements = 60
 [lint.per-file-ignores]
 "tests/*" = ["PLC0415", "PLR0913", "PLR0917"]  # en pruebas se importa dentro de la función a propósito
 "alembic/*" = ["E501"]
+# Los métodos de un servicer gRPC deben llamarse igual que las RPC del .proto (PascalCase)
+"app/motor/servicio.py" = ["N802"]

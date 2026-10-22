@@ -8,8 +8,8 @@ services:
     region: oregon
     rootDir: backend
     buildCommand: pip install -r requirements.txt
-    # Migraciones + seed idempotente en cada arranque (el plan gratis no tiene "pre-deploy")
-    startCommand: alembic upgrade head && python -m app.seed && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    # start.sh: migraciones + seed, motor gRPC en 127.0.0.1:50051 y uvicorn en $PORT (mismo servicio)
+    startCommand: sh start.sh
     healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
@@ -21,6 +21,9 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: CRON_SECRET
+        generateValue: true
+      # Token compartido entre la API y el motor gRPC (ambos procesos leen la misma variable)
+      - key: MOTOR_GRPC_TOKEN
         generateValue: true
       - key: CORS_ORIGINS
         sync: false

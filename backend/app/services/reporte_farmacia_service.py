@@ -145,6 +145,21 @@ class ReporteFarmaciaService:
         self._guardar_items(f, anio, semana, items)
         return self.obtener(anio, semana, f.id if self.es_admin else None)
 
+    def guardar_semana(self, anio: int, semana: int, items: list[ItemReporte],
+                       farmacia_id: int | None = None) -> bool:
+        """Crea o reemplaza el reporte de una semana (carga masiva de un histórico).
+
+        Aplica las mismas reglas que crear/actualizar: farmacia propia y activa, semana ya
+        terminada y, para una FARMACIA, dentro de la ventana de edición. Devuelve True si la
+        semana no existía."""
+        f = self.farmacia(farmacia_id)
+        if not f.activa:
+            raise ReglaNegocioError("La farmacia está inactiva y no puede reportar")
+        self._validar_semana(anio, semana)
+        nueva = not self._filas_semana(f.id, anio, semana)
+        self._guardar_items(f, anio, semana, items)
+        return nueva
+
     def eliminar(self, anio: int, semana: int, farmacia_id: int | None = None) -> None:
         f = self.farmacia(farmacia_id)
         self._validar_semana(anio, semana)

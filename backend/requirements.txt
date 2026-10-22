@@ -21,3 +21,8 @@ scikit-learn==1.9.1
 joblib==1.6.0
 # Fase 3: reportes PDF
 reportlab==5.0.1
+# Motor de predicción gRPC (servidor y cliente; código generado en app/motor/protos)
+grpcio==1.84.0
+grpcio-health-checking==1.84.0
+grpcio-reflection==1.84.0
+protobuf==7.36.2

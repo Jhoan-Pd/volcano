@@ -57,6 +57,16 @@ class FuenteExternaError(AppError):
     codigo = "FUENTE_EXTERNA"
 
 
+class ServicioNoDisponibleError(AppError):
+    status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    codigo = "NO_DISPONIBLE"
+
+
+class TiempoAgotadoError(AppError):
+    status_code = status.HTTP_504_GATEWAY_TIMEOUT
+    codigo = "TIEMPO_AGOTADO"
+
+
 def _respuesta(status_code: int, codigo: str, mensaje: str, detalles: Any = None, headers=None) -> JSONResponse:
     return JSONResponse(
         status_code=status_code,
