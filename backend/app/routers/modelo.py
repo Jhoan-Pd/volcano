@@ -5,9 +5,8 @@ from sqlalchemy.orm import Session
 from app.core.deps import solo_admin
 from app.db.session import get_db
 from app.schemas.modelo import EstadoEntrenamiento, ModeloOut
-from app.services.prediccion_service import (
-    PrediccionService, estado_entrenamiento, marcar_inicio, tarea_reentrenar,
-)
+from app.services.entrenamiento import control, reentrenar as tarea_reentrenar
+from app.services.prediccion_service import PrediccionService
 
 router = APIRouter(prefix="/modelo", tags=["Modelo predictivo"])
 
@@ -17,7 +16,7 @@ router = APIRouter(prefix="/modelo", tags=["Modelo predictivo"])
 def reentrenar(tareas: BackgroundTasks, enfermedad_id: int | None = Query(None, description="Vacío = todas")):
     """Compara promedio móvil, Random Forest y Gradient Boosting; guarda el mejor con sus métricas
     y regenera las predicciones. Consulta el avance en `GET /modelo/estado`."""
-    estado = marcar_inicio()
+    estado = control.iniciar()
     tareas.add_task(tarea_reentrenar, enfermedad_id)
     return estado
 
@@ -25,7 +24,7 @@ def reentrenar(tareas: BackgroundTasks, enfermedad_id: int | None = Query(None, 
 @router.get("/estado", response_model=EstadoEntrenamiento, dependencies=[Depends(solo_admin)],
             summary="Estado del último reentrenamiento")
 def estado():
-    return estado_entrenamiento()
+    return control.estado()
 
 
 @router.post("/predecir", dependencies=[Depends(solo_admin)], summary="Regenerar predicciones con los modelos activos")

@@ -4,17 +4,18 @@ Local:      uvicorn app.main:app --reload
 Swagger:    http://localhost:8000/docs
 """
 import logging
-import threading
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import text
+from sqlalchemy import func, select, text
 
 from app.core.config import settings
 from app.core.errors import registrar_manejadores
-from app.db.session import engine
+from app.db.session import SessionLocal, engine
+from app.models import CasoOficial, ModeloEntrenado
 from app.routers import alertas, auth, catalogos, clima, dashboard, datos, farmacia, jobs, modelo, reportes, usuarios
+from app.services.entrenamiento import lanzar_en_hilo
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("predictor")
@@ -22,19 +23,12 @@ logger = logging.getLogger("predictor")
 
 def _entrenar_si_falta() -> None:
     """Primer arranque en la nube: entrena en un hilo para no retrasar la apertura del puerto."""
-    from sqlalchemy import func, select
-
-    from app.db.session import SessionLocal
-    from app.models import CasoOficial, ModeloEntrenado
-    from app.services.prediccion_service import marcar_inicio, tarea_reentrenar
-
     try:
         with SessionLocal() as db:
             hay_modelos = (db.scalar(select(func.count()).select_from(ModeloEntrenado)) or 0) > 0
             hay_casos = (db.scalar(select(func.count()).select_from(CasoOficial)) or 0) > 0
         if hay_casos and not hay_modelos:
-            marcar_inicio()
-            threading.Thread(target=tarea_reentrenar, daemon=True, name="entrenamiento-inicial").start()
+            lanzar_en_hilo(nombre="entrenamiento-inicial")
             logger.info("Sin modelos entrenados: entrenamiento inicial en segundo plano")
     except Exception as exc:  # noqa: BLE001 - nunca impedir que la API arranque
         logger.warning("No se pudo lanzar el entrenamiento inicial: %s", exc)
