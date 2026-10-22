@@ -3,17 +3,15 @@
 Decisión (patrón Repository): los servicios no escriben consultas SQL; piden datos al
 repositorio. Así se puede cambiar el motor de BD o probar con SQLite sin tocar la lógica.
 """
-from typing import Any, Generic, TypeVar
+from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.base import Base
 
-ModelT = TypeVar("ModelT", bound=Base)
 
-
-class BaseRepository(Generic[ModelT]):
+class BaseRepository[ModelT: Base]:
     model: type[ModelT]
 
     def __init__(self, db: Session):
