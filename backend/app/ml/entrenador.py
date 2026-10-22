@@ -22,6 +22,7 @@ from sklearn.inspection import permutation_importance
 from app.core.epi import desplazar
 from app.ml.dataset import FEATURES, GRUPOS, HORIZONTES, filas_entrenables, grupo_de
 from app.ml.modelos import CANDIDATOS, PromedioMovil
+from app.ml.progreso import Etapa, EventoProgreso, Progreso, sin_progreso
 
 VERSION_ARTEFACTO = "1"
 
@@ -66,7 +67,7 @@ class Entrenador:
         corte = datos["t_idx"].max() - self.semanas_prueba
         return datos[datos["t_idx"] <= corte], datos[datos["t_idx"] > corte]
 
-    def entrenar(self, df: pd.DataFrame) -> ResultadoEntrenamiento:
+    def entrenar(self, df: pd.DataFrame, progreso: Progreso = sin_progreso) -> ResultadoEntrenamiento:
         if df.empty or filas_entrenables(df, 1)["t_idx"].nunique() < self.semanas_prueba + 52:
             raise DatosInsuficientesError("Se necesitan al menos 2 años de semanas con casos para entrenar")
 
@@ -74,6 +75,8 @@ class Entrenador:
         predicciones: dict[str, dict[int, np.ndarray]] = {}
         pruebas: dict[int, pd.DataFrame] = {}
         modelos_h: dict[str, dict[int, object]] = {}
+        pasos = len(HORIZONTES) * (len(CANDIDATOS) + 1)  # comparar candidatos + reentrenar el elegido
+        paso = 0
         for h in HORIZONTES:
             train, test = self._particion(df, h)
             pruebas[h] = test
@@ -86,6 +89,11 @@ class Entrenador:
                 metricas.setdefault(cls.clave, {})[str(h)] = {"mae": mae(y_test, p), "rmse": rmse(y_test, p)}
                 predicciones.setdefault(cls.clave, {})[h] = p
                 modelos_h.setdefault(cls.clave, {})[h] = m
+                paso += 1
+                error = metricas[cls.clave][str(h)]["mae"]
+                progreso(EventoProgreso(Etapa.CANDIDATO, f"t+{h} · {cls.nombre}: MAE {error:.2f}", paso / pasos,
+                                        algoritmo=cls.nombre, mae=error,
+                                        mae_base=metricas["promedio_movil"][str(h)]["mae"]))
 
         def promedio(clave: str, metrica: str) -> float:
             return float(np.mean([v[metrica] for v in metricas[clave].values()]))
@@ -115,6 +123,9 @@ class Entrenador:
         for h in HORIZONTES:
             todos = filas_entrenables(df, h)
             finales[h] = mejor(self.semilla).ajustar(todos[FEATURES], todos[f"y_h{h}"])
+            paso += 1
+            progreso(EventoProgreso(Etapa.CANDIDATO, f"t+{h} · {mejor.nombre} reentrenado con todos los datos",
+                                    paso / pasos, algoritmo=mejor.nombre))
         medianas = {f: (None if pd.isna(v) else float(v)) for f, v in df[FEATURES].median().items()}
         artefacto = self.serializar({"version": VERSION_ARTEFACTO, "clave": mejor.clave, "features": FEATURES,
                                      "modelos": finales, "medianas": medianas, "cuantiles": cuantiles})

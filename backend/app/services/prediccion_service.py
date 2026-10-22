@@ -18,6 +18,7 @@ from app.core.texto import numero_es
 from app.ml.dataset import ConstructorDataset
 from app.ml.entrenador import DatosInsuficientesError, Entrenador
 from app.ml.explicador import explicar
+from app.ml.progreso import Etapa, EventoProgreso, Progreso, escalar, sin_progreso
 from app.ml.pronostico import Pronosticador
 from app.models import Enfermedad, ModeloEntrenado, Municipio, Prediccion
 from app.models.enums import NivelRiesgo
@@ -66,23 +67,28 @@ class PrediccionService:
         self._vigentes.clear()
 
     # ── entrenamiento ─────────────────────────────────────────────────────────
-    def entrenar(self, enfermedad_id: int | None = None) -> tuple[list[ModeloEntrenado], list[str]]:
+    def entrenar(self, enfermedad_id: int | None = None,
+                 progreso: Progreso = sin_progreso) -> tuple[list[ModeloEntrenado], list[str]]:
         enfermedades = self.enfermedades.activas()
         if enfermedad_id is not None:
             enfermedades = [e for e in enfermedades if e.id == enfermedad_id]
             if not enfermedades:
                 raise NoEncontradoError(f"Enfermedad {enfermedad_id} no existe o está inactiva")
         modelos, errores = [], []
-        for enf in enfermedades:
+        n = len(enfermedades)
+        for i, enf in enumerate(enfermedades):
+            tramo = escalar(progreso, i / n, (i + 1) / n, enfermedad=enf.nombre)
             try:
-                modelos.append(self.entrenar_enfermedad(enf))
+                modelos.append(self.entrenar_enfermedad(enf, tramo))
             except DatosInsuficientesError as exc:
                 errores.append(f"{enf.codigo}: {exc}")
+                tramo(EventoProgreso(Etapa.AVISO, f"{enf.nombre}: {exc}", 1.0))
         return modelos, errores
 
-    def entrenar_enfermedad(self, enf: Enfermedad) -> ModeloEntrenado:
+    def entrenar_enfermedad(self, enf: Enfermedad, progreso: Progreso = sin_progreso) -> ModeloEntrenado:
+        progreso(EventoProgreso(Etapa.DATASET, f"{enf.nombre}: construyendo el dataset semanal", 0.0))
         df = ConstructorDataset(self.db).construir(enf)
-        r = self.entrenador.entrenar(df)
+        r = self.entrenador.entrenar(df, escalar(progreso, 0.05, 0.9))
         ahora = datetime.now(UTC)
         # Solo el modelo vigente conserva el binario
         self.db.execute(update(ModeloEntrenado).where(ModeloEntrenado.enfermedad_id == enf.id)
@@ -99,7 +105,11 @@ class PrediccionService:
         self.db.commit()
         self._invalidar_cache()
         logger.info("Modelo %s: %s MAE %.3f (base %.3f)", enf.codigo, r.algoritmo, r.mae_modelo, r.mae_base)
-        self.predecir_enfermedad(enf, m, df)
+        progreso(EventoProgreso(Etapa.MODELO_LISTO, f"{enf.nombre}: gana {r.algoritmo} (MAE {r.mae_modelo:.2f} "
+                                f"frente a {r.mae_base:.2f} del promedio móvil)", 0.9, algoritmo=r.algoritmo,
+                                mae=r.mae_modelo, mae_base=r.mae_base))
+        nuevas = self.predecir_enfermedad(enf, m, df)
+        progreso(EventoProgreso(Etapa.PREDICCIONES, f"{enf.nombre}: {nuevas} predicciones guardadas", 1.0))
         return m
 
     # ── predicción ────────────────────────────────────────────────────────────

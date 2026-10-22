@@ -11,6 +11,7 @@ from app.ml.dataset import FEATURES, GRUPOS, ConstructorDataset
 from app.ml.entrenador import DatosInsuficientesError, Entrenador, mae
 from app.ml.explicador import contribuciones
 from app.ml.modelos import BosqueAleatorio, PromedioMovil
+from app.ml.progreso import Etapa, EventoProgreso
 from app.models import CasoOficial, Enfermedad, ModeloEntrenado, Municipio, Prediccion
 from app.services.prediccion_service import PrediccionService
 
@@ -101,8 +102,15 @@ def test_entrenar_guardar_y_predecir(db, eda_con_casos):
         assert p.limite_inferior <= p.casos_esperados <= p.limite_superior
         assert p.nivel_riesgo in ("VERDE", "AMARILLO", "NARANJA", "ROJO")
 
-    # Reentrenar desactiva el modelo anterior y libera su binario
-    modelos2, _ = servicio.entrenar(eda_con_casos)
+    # Reentrenar desactiva el modelo anterior y libera su binario. De paso se revisa el avance:
+    # crece de forma monótona, termina en 1 y nombra al modelo ganador.
+    eventos: list[EventoProgreso] = []
+    modelos2, _ = servicio.entrenar(eda_con_casos, progreso=eventos.append)
+    avances = [e.avance for e in eventos]
+    assert avances == sorted(avances) and avances[-1] == pytest.approx(1.0)
+    assert eventos[0].etapa == Etapa.DATASET and eventos[-1].etapa == Etapa.PREDICCIONES
+    listo = next(e for e in eventos if e.etapa == Etapa.MODELO_LISTO)
+    assert listo.algoritmo == modelos2[0].algoritmo and listo.enfermedad
     db.refresh(m)
     assert not m.activo and m.artefacto is None and modelos2[0].activo
     assert db.query(ModeloEntrenado).filter_by(enfermedad_id=eda_con_casos).count() == 2
