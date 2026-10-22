@@ -51,21 +51,21 @@ class _ModeloArboles(ModeloPronostico):
     def _crear(self):  # pragma: no cover - abstracto
         raise NotImplementedError
 
-    def _preparar(self, X: pd.DataFrame) -> pd.DataFrame:
+    def preparar(self, X: pd.DataFrame) -> pd.DataFrame:
         # Una fuente sin ningún dato (p. ej. sin farmacias) deja la columna entera vacía; se
         # reemplaza por una constante para que el modelo simplemente la ignore.
         return X.fillna({c: 0.0 for c in self._vacias}) if self._vacias else X
 
     def ajustar(self, X, y):
         self._vacias = [c for c in X.columns if X[c].isna().all()]
-        self.estimador.fit(self._preparar(X), np.log1p(np.asarray(y, dtype=float)))
+        self.estimador.fit(self.preparar(X), np.log1p(np.asarray(y, dtype=float)))
         return self
 
     def predecir(self, X):
         return np.clip(np.expm1(self.predecir_log(X)), 0, None)
 
     def predecir_log(self, X) -> np.ndarray:
-        return self.estimador.predict(self._preparar(X))
+        return self.estimador.predict(self.preparar(X))
 
     def parametros(self) -> dict:
         p = self.estimador.get_params()

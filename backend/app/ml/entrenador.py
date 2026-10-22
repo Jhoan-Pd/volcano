@@ -131,7 +131,7 @@ class Entrenador:
 
     def _importancias(self, modelo, test: pd.DataFrame) -> dict:
         r = permutation_importance(
-            modelo.estimador, modelo._preparar(test[FEATURES]), np.log1p(test["y_h1"].to_numpy()), scoring="neg_mean_absolute_error",
+            modelo.estimador, modelo.preparar(test[FEATURES]), np.log1p(test["y_h1"].to_numpy()), scoring="neg_mean_absolute_error",
             n_repeats=self.repeticiones, random_state=self.semilla, n_jobs=1)
         valores = {f: max(float(v), 0.0) for f, v in zip(FEATURES, r.importances_mean)}
         total = sum(valores.values()) or 1.0
