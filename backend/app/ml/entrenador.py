@@ -105,7 +105,7 @@ class Entrenador:
 
         # Predicción a 1 semana en el periodo de prueba: permite dibujar "predicho vs. observado"
         backtest = []
-        for fila, p in zip(pruebas[1].itertuples(), predicciones[mejor.clave][1]):
+        for fila, p in zip(pruebas[1].itertuples(), predicciones[mejor.clave][1], strict=True):
             a, s = desplazar(int(fila.anio), int(fila.semana_epi), 1)
             backtest.append({"municipio_id": int(fila.municipio_id), "anio": a, "semana_epi": s,
                              "real": float(fila.y_h1), "predicho": round(float(p), 2)})
@@ -123,7 +123,7 @@ class Entrenador:
             algoritmo=mejor.nombre, clave=mejor.clave,
             mae_base=resumen["promedio_movil"]["mae"], rmse_base=resumen["promedio_movil"]["rmse"],
             mae_modelo=resumen[mejor.clave]["mae"], rmse_modelo=resumen[mejor.clave]["rmse"],
-            n_muestras=int(len(filas_entrenables(df, 1))),
+            n_muestras=len(filas_entrenables(df, 1)),
             metricas={"resumen": resumen, "por_horizonte": metricas, "semanas_prueba": self.semanas_prueba},
             importancias=importancias, cuantiles=cuantiles, backtest=backtest, artefacto=artefacto,
             parametros=finales[1].parametros(),
@@ -131,9 +131,10 @@ class Entrenador:
 
     def _importancias(self, modelo, test: pd.DataFrame) -> dict:
         r = permutation_importance(
-            modelo.estimador, modelo.preparar(test[FEATURES]), np.log1p(test["y_h1"].to_numpy()), scoring="neg_mean_absolute_error",
+            modelo.estimador, modelo.preparar(test[FEATURES]), np.log1p(test["y_h1"].to_numpy()),
+            scoring="neg_mean_absolute_error",
             n_repeats=self.repeticiones, random_state=self.semilla, n_jobs=1)
-        valores = {f: max(float(v), 0.0) for f, v in zip(FEATURES, r.importances_mean)}
+        valores = {f: max(float(v), 0.0) for f, v in zip(FEATURES, r.importances_mean, strict=True)}
         total = sum(valores.values()) or 1.0
         por_variable = {f: round(100 * v / total, 2) for f, v in sorted(valores.items(), key=lambda x: -x[1])}
         por_grupo = {g: round(sum(por_variable[f] for f in fs), 2) for g, fs in GRUPOS.items()}

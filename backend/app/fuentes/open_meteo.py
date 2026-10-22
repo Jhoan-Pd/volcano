@@ -35,6 +35,12 @@ def describir_codigo(codigo: int | None) -> str:
     return CODIGOS_WMO.get(codigo, "Sin dato") if codigo is not None else "Sin dato"
 
 
+def _valor_dia(diario: dict[str, Any], clave: str, i: int) -> float | None:
+    """Valor del día i de una serie diaria de Open-Meteo (None si falta)."""
+    serie = diario.get(clave) or []
+    return None if i >= len(serie) or serie[i] is None else round(float(serie[i]), 2)
+
+
 class OpenMeteoFuente(FuenteDatos):
     nombre = "open-meteo"
 
@@ -68,7 +74,7 @@ class OpenMeteoFuente(FuenteDatos):
         horario = payload.get("hourly") or {}
         tiempos, valores = horario.get("time") or [], horario.get("relative_humidity_2m") or []
         acumulado: dict[str, list[float]] = defaultdict(list)
-        for t, v in zip(tiempos, valores):
+        for t, v in zip(tiempos, valores, strict=False):  # la API podría truncar una de las dos
             if v is not None:
                 acumulado[t[:10]].append(float(v))
         return {dia: round(sum(vs) / len(vs), 1) for dia, vs in acumulado.items() if vs}
@@ -82,9 +88,8 @@ class OpenMeteoFuente(FuenteDatos):
         humedad = cls._humedad_diaria(payload)
         filas = []
         for i, dia in enumerate(diario["time"]):
-            def val(clave: str):
-                serie = diario.get(clave) or []
-                return None if i >= len(serie) or serie[i] is None else round(float(serie[i]), 2)
+            def val(clave: str, i: int = i):  # i ligado por defecto: el cierre no depende del bucle
+                return _valor_dia(diario, clave, i)
 
             tmax, tmin, tmed = val("temperature_2m_max"), val("temperature_2m_min"), val("temperature_2m_mean")
             if tmed is None and tmax is not None and tmin is not None:
