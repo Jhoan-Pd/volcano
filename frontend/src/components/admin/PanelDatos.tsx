@@ -1,10 +1,11 @@
 import { CloudSun, Database, FileUp, RefreshCw, Search, Stethoscope } from "lucide-react";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useRef, useState, type ReactNode } from "react";
 import { mensajeError } from "../../api/cliente";
 import { climaApi, datosApi } from "../../api/servicios";
-import type { EstadoFuente, ResultadoImportacion, TipoImportacion } from "../../api/tipos";
+import type { ResultadoImportacion, TipoImportacion } from "../../api/tipos";
 import { fmtFecha, fmtNum } from "../../lib/formato";
-import { Aviso, Boton, claseInput, Etiqueta, Spinner } from "../ui";
+import { useDatos } from "../../lib/useDatos";
+import { Aviso, Boton, claseCabeceraTabla, claseInput, Etiqueta, Spinner } from "../ui";
 
 type Mensaje = { tipo: "ok" | "error"; texto: string } | null;
 
@@ -47,17 +48,12 @@ const PLANTILLAS: Record<TipoImportacion, { etiqueta: string; columnas: string }
 };
 
 export default function PanelDatos() {
-  const [estado, setEstado] = useState<EstadoFuente[] | null>(null);
-  const [errorEstado, setErrorEstado] = useState<string | null>(null);
+  const { datos: estado, error: errorEstado, recargar: cargarEstado } = useDatos(() => datosApi.estado(), []);
   const clima = useAccion();
   const trends = useAccion();
   const sivigila = useAccion();
   const [desdeAnio, setDesdeAnio] = useState(2020);
 
-  const cargarEstado = useCallback(() => {
-    datosApi.estado().then(setEstado).catch((e) => setErrorEstado(mensajeError(e)));
-  }, []);
-  useEffect(cargarEstado, [cargarEstado]);
 
   return (
     <div className="space-y-6">
@@ -110,7 +106,7 @@ export default function PanelDatos() {
           <div className="overflow-x-auto rounded-lg border border-line">
             <table className="w-full min-w-[620px] text-sm">
               <thead>
-                <tr className="border-b border-line bg-surface-2 text-left text-xs text-muted">
+                <tr className={claseCabeceraTabla}>
                   <th className="px-3 py-2 font-medium">Fuente</th>
                   <th className="px-3 py-2 text-right font-medium">Registros</th>
                   <th className="px-3 py-2 text-right font-medium">Simulados</th>

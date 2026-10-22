@@ -1,10 +1,11 @@
 import { BellRing, ChevronLeft, ChevronRight, Download, MailCheck, RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { mensajeError } from "../../api/cliente";
 import { alertaApi, reporteApi } from "../../api/servicios";
-import type { Alerta, Pagina } from "../../api/tipos";
+import type { Alerta } from "../../api/tipos";
 import { fmtFecha } from "../../lib/formato";
-import { Aviso, Boton, NivelChip, Spinner } from "../ui";
+import { useDatos } from "../../lib/useDatos";
+import { Aviso, Boton, claseCabeceraTabla, NivelChip, Segmentado, Spinner } from "../ui";
 
 const FILTROS = [
   { valor: true, etiqueta: "Activas" },
@@ -16,17 +17,13 @@ const POR_PAGINA = 15;
 export default function PanelAlertas() {
   const [filtro, setFiltro] = useState<boolean | undefined>(true);
   const [pagina, setPagina] = useState(0);
-  const [datos, setDatos] = useState<Pagina<Alerta> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [evaluando, setEvaluando] = useState(false);
   const [cerrando, setCerrando] = useState<number | null>(null);
 
-  const cargar = useCallback(() => {
-    setError(null);
-    alertaApi.listar(filtro, pagina * POR_PAGINA, POR_PAGINA).then(setDatos).catch((e) => setError(mensajeError(e)));
-  }, [filtro, pagina]);
-  useEffect(cargar, [cargar]);
+  const lista = useDatos(() => alertaApi.listar(filtro, pagina * POR_PAGINA, POR_PAGINA), [filtro, pagina]);
+  const { datos, recargar: cargar } = lista;
 
   async function evaluar() {
     setEvaluando(true); setAviso(null); setError(null);
@@ -68,14 +65,8 @@ export default function PanelAlertas() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex rounded-lg border border-line p-0.5 text-xs" role="group" aria-label="Filtrar alertas">
-            {FILTROS.map((f) => (
-              <button key={f.etiqueta} onClick={() => { setFiltro(f.valor); setPagina(0); }} aria-pressed={filtro === f.valor}
-                className={`rounded-md px-2.5 py-1 font-medium ${filtro === f.valor ? "bg-surface-2 text-ink" : "text-muted hover:text-ink"}`}>
-                {f.etiqueta}
-              </button>
-            ))}
-          </div>
+          <Segmentado etiqueta="Filtrar alertas" opciones={FILTROS} valor={filtro}
+            onCambiar={(v) => { setFiltro(v); setPagina(0); }} />
           <Boton variante="secundario" onClick={() => reporteApi.alertasCsv().catch((e) => setError(mensajeError(e)))}>
             <Download size={15} /> CSV
           </Boton>
@@ -84,7 +75,7 @@ export default function PanelAlertas() {
       </div>
 
       {aviso && <Aviso tipo="ok">{aviso}</Aviso>}
-      {error && <Aviso tipo="error">{error}</Aviso>}
+      {(error ?? lista.error) && <Aviso tipo="error">{error ?? lista.error}</Aviso>}
 
       {!datos ? <Spinner /> : datos.items.length === 0 ? (
         <p className="py-8 text-center text-sm text-muted">No hay alertas {filtro === true ? "activas" : filtro === false ? "cerradas" : ""}.</p>
@@ -92,7 +83,7 @@ export default function PanelAlertas() {
         <div className="relative overflow-x-auto rounded-lg border border-line">
           <table className="w-full min-w-[860px] text-sm">
             <thead>
-              <tr className="border-b border-line bg-surface-2 text-left text-xs text-muted">
+              <tr className={claseCabeceraTabla}>
                 <th className="px-3 py-2 font-medium">Nivel</th>
                 <th className="px-3 py-2 font-medium">Origen</th>
                 <th className="px-3 py-2 font-medium">Semana</th>
