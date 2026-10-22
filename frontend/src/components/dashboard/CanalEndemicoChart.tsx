@@ -1,6 +1,6 @@
 import { Area, CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { PrediccionEnfermedad, PuntoSerie } from "../../api/tipos";
-import { fmtFecha, fmtNum, NIVELES } from "../../lib/formato";
+import { fmtFecha, fmtNum, NIVELES, ORDEN_NIVELES } from "../../lib/formato";
 
 interface Fila {
   etiqueta: string;
@@ -69,7 +69,7 @@ export default function CanalEndemicoChart({ puntos, color, prediccion, mostrarV
             <YAxis tickLine={false} axisLine={false} width={44} domain={[0, tope]} allowDecimals={false} />
             {(["z1", "z2", "z3", "z4"] as const).map((z, i) => (
               <Area key={z} dataKey={z} stackId="canal" type="stepAfter" stroke="none" isAnimationActive={false}
-                fill={[NIVELES.VERDE.color, NIVELES.AMARILLO.color, NIVELES.NARANJA.color, NIVELES.ROJO.color][i]}
+                fill={NIVELES[ORDEN_NIVELES[i]].color}
                 fillOpacity={0.16} activeDot={false} />
             ))}
             {inicioFuturo && (
@@ -106,7 +106,7 @@ export default function CanalEndemicoChart({ puntos, color, prediccion, mostrarV
         {mostrarValidacion && (
           <li className="flex items-center gap-1.5"><span className="w-5 border-t-2 border-dotted border-muted" />Predicho en validación</li>
         )}
-        {(["VERDE", "AMARILLO", "NARANJA", "ROJO"] as const).map((n) => (
+        {ORDEN_NIVELES.map((n) => (
           <li key={n} className="flex items-center gap-1.5">
             <span className="h-3 w-3 rounded-sm" style={{ background: NIVELES[n].color, opacity: 0.45 }} />
             {NIVELES[n].etiqueta}

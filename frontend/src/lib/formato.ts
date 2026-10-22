@@ -9,6 +9,10 @@ export const fmtFecha = (iso: string | null | undefined, opts: Intl.DateTimeForm
 export const fmtDia = (iso: string) =>
   new Date(`${iso}T12:00:00`).toLocaleDateString("es-CO", { weekday: "short", day: "numeric" });
 
+/** Niveles de menor a mayor riesgo; el índice sirve para ordenar y comparar. */
+export const ORDEN_NIVELES: readonly Nivel[] = ["VERDE", "AMARILLO", "NARANJA", "ROJO"];
+export const rangoNivel = (n: Nivel) => ORDEN_NIVELES.indexOf(n);
+
 export const NIVELES: Record<Nivel, { etiqueta: string; descripcion: string; color: string; tinta: string }> = {
   VERDE: { etiqueta: "Bajo", descripcion: "Dentro de lo esperado", color: "var(--st-verde)", tinta: "var(--st-verde-ink)" },
   AMARILLO: { etiqueta: "Moderado", descripcion: "Por encima de la mediana histórica", color: "var(--st-amarillo)", tinta: "var(--st-amarillo-ink)" },

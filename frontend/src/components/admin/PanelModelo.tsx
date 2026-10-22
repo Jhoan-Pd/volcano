@@ -5,7 +5,7 @@ import { mensajeError } from "../../api/cliente";
 import { catalogoApi, modeloApi } from "../../api/servicios";
 import type { Enfermedad, EstadoEntrenamiento, ModeloEntrenado } from "../../api/tipos";
 import { fmtFecha, fmtNum } from "../../lib/formato";
-import { Aviso, Boton, claseInput, Spinner } from "../ui";
+import { Aviso, Boton, claseCabeceraTabla, claseInput, Spinner } from "../ui";
 
 const NOMBRES_ALGORITMO: Record<string, string> = {
   promedio_movil: "Promedio móvil (línea base)",
@@ -103,7 +103,7 @@ export default function PanelModelo() {
           <div className="overflow-x-auto rounded-lg border border-line">
             <table className="w-full min-w-[720px] text-sm">
               <thead>
-                <tr className="border-b border-line bg-surface-2 text-left text-xs text-muted">
+                <tr className={claseCabeceraTabla}>
                   <th className="px-3 py-2 font-medium">Enfermedad</th>
                   <th className="px-3 py-2 font-medium">Modelo elegido</th>
                   <th className="px-3 py-2 text-right font-medium">MAE base</th>

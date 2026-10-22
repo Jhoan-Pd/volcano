@@ -128,3 +128,25 @@ export function SimuladoBadge() {
     </span>
   );
 }
+
+/**
+ * Botones excluyentes (como pestañas pequeñas): rango de tiempo, filtros, modo del mapa.
+ * Antes el mismo marcado estaba copiado en tres pantallas.
+ */
+export function Segmentado<T extends string | number | boolean | undefined>({ opciones, valor, onCambiar, etiqueta }: {
+  opciones: readonly { valor: T; etiqueta: string }[]; valor: T; onCambiar: (v: T) => void; etiqueta: string;
+}) {
+  return (
+    <div className="flex rounded-lg border border-line p-0.5 text-xs" role="group" aria-label={etiqueta}>
+      {opciones.map((o) => (
+        <button key={String(o.valor)} type="button" onClick={() => onCambiar(o.valor)} aria-pressed={valor === o.valor}
+          className={`rounded-md px-2.5 py-1 font-medium ${valor === o.valor ? "bg-surface-2 text-ink" : "text-muted hover:text-ink"}`}>
+          {o.etiqueta}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Clases de la fila de encabezado de las tablas de administración. */
+export const claseCabeceraTabla = "border-b border-line bg-surface-2 text-left text-xs text-muted";
