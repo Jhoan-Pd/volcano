@@ -143,7 +143,7 @@ class ImportadorEventos(Importador):
             raise FilaInvalida(f"Nivel «{f['nivel_actividad']}» no válido (VERDE, AMARILLO, NARANJA o ROJO)")
         cod = (f.get("cod_divipola") or "").strip()
         intensidad = _entero(f.get("intensidad_ceniza") or "0", "intensidad_ceniza", 0, 3)
-        if tipo == "CAIDA_CENIZA" and (not cod or intensidad == 0):
+        if tipo == TipoEventoVolcanico.CAIDA_CENIZA and (not cod or intensidad == 0):
             raise FilaInvalida("Una caída de ceniza necesita municipio e intensidad entre 1 y 3")
         return {"tipo": tipo, "nivel_actividad": nivel, "fecha_inicio": _fecha(f["fecha_inicio"], "fecha_inicio"),
                 "municipio_id": self.municipio(cod) if cod else None, "intensidad_ceniza": intensidad,

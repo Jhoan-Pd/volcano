@@ -6,6 +6,7 @@ from app.models import (
     CasoOficial, Enfermedad, EventoVolcanico, Farmacia, Municipio, RegistroClima, Rol, TendenciaBusqueda,
     Usuario,
 )
+from app.models.enums import TipoEventoVolcanico
 from app.repositories.base import BaseRepository
 
 
@@ -45,13 +46,13 @@ class EventoVolcanicoRepository(BaseRepository[EventoVolcanico]):
     model = EventoVolcanico
 
     def ultimo_boletin(self) -> EventoVolcanico | None:
-        stmt = (select(EventoVolcanico).where(EventoVolcanico.tipo == "BOLETIN")
+        stmt = (select(EventoVolcanico).where(EventoVolcanico.tipo == TipoEventoVolcanico.BOLETIN)
                 .order_by(EventoVolcanico.fecha_inicio.desc(), EventoVolcanico.id.desc()).limit(1))
         return self.db.scalars(stmt).first()
 
     def cenizas_desde(self, desde: date, municipio_id: int | None = None) -> list[EventoVolcanico]:
         stmt = select(EventoVolcanico).where(
-            EventoVolcanico.tipo == "CAIDA_CENIZA", EventoVolcanico.fecha_inicio >= desde
+            EventoVolcanico.tipo == TipoEventoVolcanico.CAIDA_CENIZA, EventoVolcanico.fecha_inicio >= desde
         )
         if municipio_id:
             stmt = stmt.where(EventoVolcanico.municipio_id == municipio_id)

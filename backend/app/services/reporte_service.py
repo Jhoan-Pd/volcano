@@ -82,7 +82,7 @@ class ReporteService:
             if modelo is None:
                 continue
             for m in municipios:
-                for p in pred._ultimas(modelo.id, m.id):
+                for p in pred.ultimas_predicciones(modelo.id, m.id):
                     filas.append((m.codigo_divipola, m.nombre, enf.codigo, p.anio, p.semana_epi,
                                   inicio_semana(p.anio, p.semana_epi).isoformat(), p.horizonte, p.casos_esperados,
                                   p.limite_inferior, p.limite_superior, p.nivel_riesgo, modelo.algoritmo,

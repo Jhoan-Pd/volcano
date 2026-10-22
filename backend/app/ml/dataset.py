@@ -23,6 +23,7 @@ from sqlalchemy import select
 from app.core.epi import desplazar, iterar_semanas, semana_de
 from app.fuentes.farmacia import FarmaciaFuente
 from app.models import CasoOficial, Enfermedad, EventoVolcanico, RegistroClima
+from app.models.enums import TipoEventoVolcanico
 from app.repositories.repos import MunicipioRepository
 from app.services.tendencia_service import TendenciaService
 
@@ -78,7 +79,7 @@ class ConstructorDataset:
             k = semana_de(e.fecha_inicio)
             if e.so2_ton_dia is not None:
                 so2[k].append(e.so2_ton_dia)
-            if e.tipo == "CAIDA_CENIZA" and e.municipio_id:
+            if e.tipo == TipoEventoVolcanico.CAIDA_CENIZA and e.municipio_id:
                 kk = (e.municipio_id, *k)
                 ceniza[kk] = max(ceniza.get(kk, 0), e.intensidad_ceniza)
         return {k: float(np.mean(v)) for k, v in so2.items()}, ceniza

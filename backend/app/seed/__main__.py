@@ -27,6 +27,8 @@ from app.models import (
 )
 from app.models.enums import RolNombre
 from app.seed import catalogo
+from app.services.alerta_service import AlertaService
+from app.services.prediccion_service import PrediccionService
 from app.seed.generador import (
     clima_semanal, generar_casos, generar_reportes_farmacia, generar_tendencias, simular_clima,
 )
@@ -276,10 +278,6 @@ def main() -> None:
         seed_tendencias(db)
         seed_reportes_farmacia(db)
         if args.entrenar:
-            from app.services.prediccion_service import PrediccionService
-
-            from app.services.alerta_service import AlertaService
-
             modelos, errores = PrediccionService(db).entrenar()
             log.info("Modelos entrenados: %d %s", len(modelos), errores or "")
             log.info("Alertas: %s", AlertaService(db).evaluar(enviar_correo=False))

@@ -12,7 +12,6 @@ las demás (una caída de Google Trends no debe impedir actualizar el clima ni l
     5. Alertas: se recalculan y se envían por correo las nuevas.
 """
 import logging
-import threading
 import time
 from datetime import date, datetime, timezone
 from typing import Callable, Literal
@@ -20,6 +19,12 @@ from typing import Callable, Literal
 from sqlalchemy import func, select
 
 from app.models import ModeloEntrenado
+from app.services.alerta_service import AlertaService
+from app.services.clima_service import ClimaService
+from app.services.entrenamiento import lanzar_en_hilo
+from app.services.prediccion_service import PrediccionService
+from app.services.sivigila_service import SivigilaService
+from app.services.tendencia_service import TendenciaService
 
 logger = logging.getLogger("predictor.cron")
 
@@ -47,12 +52,6 @@ class ActualizacionService:
         return modo == "si" or (modo == "auto" and self.hoy.weekday() == 0)  # lunes
 
     def ejecutar(self, sivigila: Modo = "auto", reentrenar: Modo = "auto") -> dict:
-        from app.services.alerta_service import AlertaService
-        from app.services.clima_service import ClimaService
-        from app.services.prediccion_service import PrediccionService, marcar_inicio, tarea_reentrenar
-        from app.services.sivigila_service import SivigilaService
-        from app.services.tendencia_service import TendenciaService
-
         inicio = datetime.now(timezone.utc)
         pasos = [
             _paso("clima", lambda: ClimaService(self.db).sincronizar(dias_pasados=14)),
@@ -65,8 +64,7 @@ class ActualizacionService:
         en_segundo_plano = False
         if self._toca(reentrenar) or (reentrenar != "no" and sin_modelos):
             def lanzar():
-                marcar_inicio()
-                threading.Thread(target=tarea_reentrenar, daemon=True, name="reentrenamiento-cron").start()
+                lanzar_en_hilo(nombre="reentrenamiento-cron")
                 return {"mensaje": "Reentrenamiento iniciado en segundo plano; al terminar se evalúan las alertas"}
             paso = _paso("reentrenar", lanzar)
             if not paso["ok"] and "en curso" in paso.get("error", ""):

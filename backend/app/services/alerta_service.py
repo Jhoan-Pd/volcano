@@ -20,16 +20,15 @@ from app.core.config import settings
 from app.core.epi import etiqueta
 from app.core.errors import NoEncontradoError
 from app.models import Alerta, Rol, Usuario
-from app.models.enums import NivelRiesgo, RolNombre
+from app.models.enums import NivelRiesgo, OrigenAlerta, RolNombre
 from app.notificaciones.correo import NotificadorCorreo, html_alertas, notificador_por_defecto
 from app.repositories.repos import EnfermedadRepository, MunicipioRepository
 from app.schemas.alerta import AlertaOut, ResultadoEvaluacion
 from app.schemas.comun import Pagina
+from app.services.dashboard_service import DashboardService
+from app.services.prediccion_service import PrediccionService
 
 logger = logging.getLogger("predictor.alertas")
-
-NIVELES_ALERTA = (NivelRiesgo.NARANJA.value, NivelRiesgo.ROJO.value)
-
 
 def texto_nivel(nivel: str) -> str:
     """«Riesgo alto», «Riesgo muy alto»…"""
@@ -65,14 +64,10 @@ class AlertaService:
 
     # ── evaluación ───────────────────────────────────────────────────────────
     def _candidatas(self) -> list[_Candidata]:
-        # Import local: dashboard_service importa prediccion_service, que no debe depender de alertas
-        from app.services.dashboard_service import DashboardService
-        from app.services.prediccion_service import PrediccionService
-
         pred = PrediccionService(self.db)
         dash = DashboardService(self.db, predicciones=pred)  # comparten la caché de modelos y predicciones
         try:
-            anio, semana = dash._semana_referencia()
+            anio, semana = dash.semana_referencia()
         except NoEncontradoError:
             return []
         salida = []
@@ -81,19 +76,19 @@ class AlertaService:
             modelo = pred.modelo_activo(enf.id)
             for m in municipios:
                 r = dash.riesgo_enfermedad(m, enf, anio, semana)
-                if r.nivel in NIVELES_ALERTA:
+                if NivelRiesgo(r.nivel).es_alerta:
                     salida.append(_Candidata(
-                        m.id, enf.id, anio, semana, r.nivel, "OBSERVADO",
+                        m.id, enf.id, anio, semana, r.nivel, OrigenAlerta.OBSERVADO,
                         f"{enf.nombre} en {m.nombre}: {r.casos} casos en la semana {etiqueta(anio, semana)}, "
                         f"por encima del percentil {enf.umbral_naranja_pct if r.nivel == 'NARANJA' else enf.umbral_rojo_pct} "
                         f"de los últimos 5 años ({texto_nivel(r.nivel).lower()})."))
                 if modelo is None:
                     continue
-                preds = [p for p in pred._ultimas(modelo.id, m.id) if p.nivel_riesgo in NIVELES_ALERTA]
+                preds = [p for p in pred.ultimas_predicciones(modelo.id, m.id) if NivelRiesgo(p.nivel_riesgo).es_alerta]
                 if preds:
                     p = max(preds, key=lambda x: (NivelRiesgo(x.nivel_riesgo).rango, x.casos_esperados))
                     salida.append(_Candidata(
-                        m.id, enf.id, p.anio, p.semana_epi, p.nivel_riesgo, "PREDICHO",
+                        m.id, enf.id, p.anio, p.semana_epi, p.nivel_riesgo, OrigenAlerta.PREDICHO,
                         f"{enf.nombre} en {m.nombre}: el modelo espera {p.casos_esperados:.0f} casos "
                         f"(entre {p.limite_inferior:.0f} y {p.limite_superior:.0f}) en la semana "
                         f"{etiqueta(p.anio, p.semana_epi)} ({texto_nivel(p.nivel_riesgo).lower()}).",
@@ -190,7 +185,7 @@ class AlertaService:
         alertas = self.db.scalars(select(Alerta).where(Alerta.activa.is_(True)))
         orden = {"ROJO": 0, "NARANJA": 1}
         return [alerta_out(a) for a in sorted(alertas, key=lambda a: (orden.get(a.nivel_riesgo, 2),
-                                                                         a.origen != "OBSERVADO", a.municipio_id))]
+                                                                         a.origen != OrigenAlerta.OBSERVADO, a.municipio_id))]
 
     def listar(self, activa: bool | None, offset: int, limit: int) -> Pagina[AlertaOut]:
         stmt = select(Alerta)

@@ -67,7 +67,7 @@ class DashboardService:
         valores = [serie[p] for p in rs.semanas_referencia(anio, semana) if p in serie]
         return rs.calcular_umbrales(valores, enf.umbral_amarillo_pct, enf.umbral_naranja_pct, enf.umbral_rojo_pct)
 
-    def _semana_referencia(self) -> tuple[int, int]:
+    def semana_referencia(self) -> tuple[int, int]:
         if self._referencia is None:
             self._referencia = self.casos.ultima_semana()
             if self._referencia is None:
@@ -115,7 +115,7 @@ class DashboardService:
 
     def resumen(self, municipio_id: int | None) -> ResumenDashboard:
         m = self._municipio(municipio_id)
-        anio, semana = self._semana_referencia()
+        anio, semana = self.semana_referencia()
         riesgos = [self.riesgo_enfermedad(m, e, anio, semana) for e in self.enfermedades.activas()]
         volcan = self.estado_volcan()
         return ResumenDashboard(
@@ -130,7 +130,7 @@ class DashboardService:
         if enf is None:
             raise NoEncontradoError(f"Enfermedad {enfermedad_id} no existe")
         serie, _ = self._serie_dict(m.id, enf.id)
-        fin = self._semana_referencia()
+        fin = self.semana_referencia()
         ini = desplazar(*fin, -(semanas - 1))
         puntos = []
         for a, s in iterar_semanas(ini, fin):
@@ -144,7 +144,7 @@ class DashboardService:
         return SerieEnfermedad(municipio_id=m.id, enfermedad_id=enf.id, enfermedad=enf.nombre, puntos=puntos)
 
     def riesgo_por_municipio(self) -> list[RiesgoMunicipio]:
-        anio, semana = self._semana_referencia()
+        anio, semana = self.semana_referencia()
         enfermedades = self.enfermedades.activas()
         salida = []
         for m in self.municipios.activos():
