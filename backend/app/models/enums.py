@@ -15,6 +15,24 @@ class NivelRiesgo(StrEnum):
     NARANJA = "NARANJA"
     ROJO = "ROJO"
 
+    @property
+    def rango(self) -> int:
+        """Posición en la escala (0 = verde … 3 = rojo): permite comparar niveles."""
+        return list(NivelRiesgo).index(self)
+
+    @property
+    def etiqueta(self) -> str:
+        return _ETIQUETAS_NIVEL[self]
+
+    @classmethod
+    def peor(cls, niveles) -> "NivelRiesgo":
+        """El nivel más alto de una colección (VERDE si está vacía). Acepta Enum o texto."""
+        return max((cls(n) for n in niveles), key=lambda n: n.rango, default=cls.VERDE)
+
+
+_ETIQUETAS_NIVEL = {NivelRiesgo.VERDE: "Bajo", NivelRiesgo.AMARILLO: "Moderado", NivelRiesgo.NARANJA: "Alto",
+                    NivelRiesgo.ROJO: "Muy alto"}
+
 
 class NivelVolcanico(StrEnum):
     # Escala de alertas del Servicio Geológico Colombiano
