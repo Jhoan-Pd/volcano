@@ -7,7 +7,6 @@ historial pero se les borra el binario (la BD gratuita tiene 0,5 GB).
 """
 import logging
 from collections import defaultdict
-import threading
 from datetime import datetime, timezone
 
 import numpy as np
@@ -15,9 +14,8 @@ import pandas as pd
 from sqlalchemy import delete, select, update
 
 from app.core.epi import desplazar, etiqueta, inicio_semana
-from app.core.errors import ConflictoError, NoEncontradoError
+from app.core.errors import NoEncontradoError
 from app.core.texto import numero_es
-from app.db.session import SessionLocal
 from app.ml.dataset import FEATURES, HORIZONTES, ConstructorDataset, ultima_fila_por_municipio
 from app.ml.entrenador import DatosInsuficientesError, Entrenador
 from app.ml.explicador import explicar
@@ -26,7 +24,7 @@ from app.models.enums import NivelRiesgo
 from app.repositories.repos import EnfermedadRepository
 from app.schemas.dashboard import Umbrales
 from app.schemas.modelo import (
-    EstadoEntrenamiento, ExplicacionPrediccion, FactorExplicacion, ModeloOut, ModeloResumen, PrediccionEnfermedad,
+    ExplicacionPrediccion, FactorExplicacion, ModeloOut, ModeloResumen, PrediccionEnfermedad,
     PuntoBacktest, PuntoPrediccion, ResumenPrediccion,
 )
 from app.services import riesgo_service as rs
@@ -158,7 +156,7 @@ class PrediccionService:
         return nuevas
 
     # ── consultas ─────────────────────────────────────────────────────────────
-    def _ultimas(self, modelo_id: int, municipio_id: int) -> list[Prediccion]:
+    def ultimas_predicciones(self, modelo_id: int, municipio_id: int) -> list[Prediccion]:
         """Predicciones de la corrida más reciente (horizontes 1-4) de un modelo para un municipio.
 
         La primera llamada para un modelo carga TODAS sus predicciones en una sola consulta y las
@@ -190,7 +188,7 @@ class PrediccionService:
         if m is None:
             return PrediccionEnfermedad(municipio_id=municipio_id, enfermedad_id=enf.id, enfermedad=enf.nombre,
                                         semana_base=None, modelo=None, nivel_max=None, puntos=[], backtest=[])
-        preds = self._ultimas(m.id, municipio_id)
+        preds = self.ultimas_predicciones(m.id, municipio_id)
         puntos = []
         for p in preds:
             u = (p.explicacion or {}).get("umbrales")
@@ -215,7 +213,7 @@ class PrediccionService:
         m = self.modelo_activo(enfermedad_id)
         if m is None:
             return None
-        preds = self._ultimas(m.id, municipio_id)
+        preds = self.ultimas_predicciones(m.id, municipio_id)
         if not preds:
             return None
         pico = max(preds, key=lambda p: (NivelRiesgo(p.nivel_riesgo).rango, p.casos_esperados))
@@ -230,7 +228,7 @@ class PrediccionService:
         if muni is None:
             raise NoEncontradoError(f"Municipio {municipio_id} no existe")
         m = self.modelo_activo(enf.id)
-        preds = self._ultimas(m.id, municipio_id) if m else []
+        preds = self.ultimas_predicciones(m.id, municipio_id) if m else []
         if not preds:
             raise NoEncontradoError("Aún no hay predicciones. Un administrador debe entrenar el modelo.")
         if horizonte is None:  # por defecto se explica la semana de mayor riesgo
@@ -260,41 +258,3 @@ class PrediccionService:
         if enfermedad_id is not None:
             stmt = stmt.where(ModeloEntrenado.enfermedad_id == enfermedad_id)
         return [modelo_out(m, codigos.get(m.enfermedad_id, "?")) for m in self.db.scalars(stmt.limit(limite))]
-
-
-# ── Reentrenamiento en segundo plano ─────────────────────────────────────────
-# En el plan gratis de Render (0,1 CPU) entrenar los 4 modelos tarda minutos: la petición
-# HTTP responde de inmediato (202) y el panel consulta el estado cada pocos segundos.
-_lock = threading.Lock()
-_estado = EstadoEntrenamiento(en_curso=False)
-
-
-def estado_entrenamiento() -> EstadoEntrenamiento:
-    return _estado.model_copy()
-
-
-def marcar_inicio() -> EstadoEntrenamiento:
-    global _estado
-    with _lock:
-        if _estado.en_curso:
-            raise ConflictoError("Ya hay un entrenamiento en curso. Espera a que termine.")
-        _estado = EstadoEntrenamiento(en_curso=True, inicio=datetime.now(timezone.utc), mensaje="Entrenando…")
-        return _estado.model_copy()
-
-
-def tarea_reentrenar(enfermedad_id: int | None = None) -> None:
-    global _estado
-    try:
-        with SessionLocal() as db:
-            modelos, errores = PrediccionService(db).entrenar(enfermedad_id)
-            from app.services.alerta_service import AlertaService  # evita import circular
-
-            alertas = AlertaService(db).evaluar()
-        msg = (f"{len(modelos)} modelo(s) entrenado(s) y predicciones actualizadas; "
-               f"{alertas.activas} alerta(s) activa(s), {alertas.nuevas} nueva(s)")
-        _estado = EstadoEntrenamiento(en_curso=False, inicio=_estado.inicio, fin=datetime.now(timezone.utc),
-                                      mensaje=msg, errores=errores)
-    except Exception as exc:  # noqa: BLE001 - se informa al panel en lugar de perderse en el log
-        logger.exception("Falló el reentrenamiento")
-        _estado = EstadoEntrenamiento(en_curso=False, inicio=_estado.inicio, fin=datetime.now(timezone.utc),
-                                      mensaje="El entrenamiento falló", errores=[str(exc)])
