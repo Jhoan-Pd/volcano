@@ -24,6 +24,11 @@ class NivelRiesgo(StrEnum):
     def etiqueta(self) -> str:
         return _ETIQUETAS_NIVEL[self]
 
+    @property
+    def es_alerta(self) -> bool:
+        """Alto o muy alto: los niveles que generan una alerta temprana."""
+        return self.rango >= NivelRiesgo.NARANJA.rango
+
     @classmethod
     def peor(cls, niveles) -> "NivelRiesgo":
         """El nivel más alto de una colección (VERDE si está vacía). Acepta Enum o texto."""
@@ -32,6 +37,11 @@ class NivelRiesgo(StrEnum):
 
 _ETIQUETAS_NIVEL = {NivelRiesgo.VERDE: "Bajo", NivelRiesgo.AMARILLO: "Moderado", NivelRiesgo.NARANJA: "Alto",
                     NivelRiesgo.ROJO: "Muy alto"}
+
+
+class OrigenAlerta(StrEnum):
+    OBSERVADO = "OBSERVADO"  # los casos de la última semana ya superan el umbral
+    PREDICHO = "PREDICHO"    # el modelo lo anticipa en las próximas 4 semanas
 
 
 class NivelVolcanico(StrEnum):

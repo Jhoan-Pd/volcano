@@ -5,6 +5,7 @@ from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Index, Intege
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, ahora_utc
+from app.models.enums import OrigenAlerta
 
 
 class ModeloEntrenado(TimestampMixin, Base):
@@ -58,7 +59,8 @@ class Alerta(TimestampMixin, Base):
     nivel_riesgo: Mapped[str] = mapped_column(String(10), nullable=False)
     mensaje: Mapped[str] = mapped_column(Text, nullable=False)
     # OBSERVADO: los casos de la última semana ya superan el umbral · PREDICHO: el modelo lo anticipa
-    origen: Mapped[str] = mapped_column(String(10), default="PREDICHO", server_default="PREDICHO", nullable=False)
+    origen: Mapped[str] = mapped_column(String(10), default=OrigenAlerta.PREDICHO.value,
+                                        server_default=OrigenAlerta.PREDICHO.value, nullable=False)
     activa: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     notificada_email: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     cerrada_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
