@@ -14,10 +14,6 @@ from app.schemas.datos import PuntoTendencia, ResultadoTendencias, SerieTendenci
 logger = logging.getLogger("predictor.trends")
 
 
-def terminos_de(enfermedad: Enfermedad) -> list[str]:
-    return [t.strip().lower() for t in (enfermedad.terminos_busqueda or "").split(",") if t.strip()]
-
-
 class TendenciaService:
     def __init__(self, db, fuente: FuenteDatos | None = None, region: str | None = None):
         self.db = db
@@ -27,11 +23,8 @@ class TendenciaService:
         self.enfermedades = EnfermedadRepository(db)
 
     def terminos(self) -> list[str]:
-        vistos: dict[str, None] = {}
-        for e in self.enfermedades.activas():
-            for t in terminos_de(e):
-                vistos.setdefault(t, None)
-        return list(vistos)
+        """Términos de todas las enfermedades activas, sin repetir y en orden de aparición."""
+        return list(dict.fromkeys(t for e in self.enfermedades.activas() for t in e.lista_terminos))
 
     def _esta_al_dia(self, termino: str) -> bool:
         ultimo = self.repo.ultima_real(termino, self.region)
@@ -72,7 +65,7 @@ class TendenciaService:
     def indice_por_semana(self, enfermedad: Enfermedad, desde: date | None = None) -> dict[tuple[int, int], float]:
         """Promedio semanal del índice de todos los términos asociados a la enfermedad."""
         acumulado: dict[tuple[int, int], list[float]] = defaultdict(list)
-        for termino in terminos_de(enfermedad):
+        for termino in enfermedad.lista_terminos:
             for t in self.repo.serie(termino, self.region, desde):
                 acumulado[(t.anio, t.semana_epi)].append(t.indice)
         return {k: sum(v) / len(v) for k, v in acumulado.items()}

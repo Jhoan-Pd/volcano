@@ -17,10 +17,6 @@ from app.schemas.datos import ResultadoSivigila
 logger = logging.getLogger("predictor.sivigila")
 
 
-def codigos_de(codigos: str | None) -> list[str]:
-    return [c.strip() for c in (codigos or "").split(",") if c.strip()]
-
-
 class SivigilaService:
     def __init__(self, db, fuente: FuenteDatos | None = None):
         self.db = db
@@ -35,7 +31,7 @@ class SivigilaService:
         nombres, anios_total, errores = [], set(), []
         guardadas = con_casos = 0
         for enf in self.enfermedades.activas():
-            codigos = codigos_de(enf.codigos_sivigila)
+            codigos = enf.lista_codigos_sivigila
             if not codigos:
                 continue
             nombres.append(enf.codigo)
