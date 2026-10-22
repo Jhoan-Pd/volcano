@@ -116,7 +116,7 @@ def test_ciudadanos_reciben_solo_las_alertas_de_su_municipio(db, brote_dengue, m
     from app.core.security import hash_password
     from app.models import Rol, Usuario
 
-    mid, eid = brote_dengue
+    mid, _ = brote_dengue
     rol = db.query(Rol).filter_by(nombre="CIUDADANO").one()
     db.add(Usuario(nombre="Vecina de Consacá", email="vecina@consaca.co", password_hash=hash_password("Clave1234"),
                    rol_id=rol.id, municipio_id=mid))
