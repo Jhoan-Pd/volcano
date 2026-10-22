@@ -7,7 +7,18 @@ from app.models.prediccion import Alerta, ModeloEntrenado, Prediccion
 from app.models.seguridad import Rol, Usuario
 
 __all__ = [
-    "Base", "Rol", "Usuario", "Municipio", "Enfermedad", "RegistroClima", "TendenciaBusqueda",
-    "CasoOficial", "EventoVolcanico", "Farmacia", "ReporteFarmacia", "ModeloEntrenado",
-    "Prediccion", "Alerta",
+    "Alerta",
+    "Base",
+    "CasoOficial",
+    "Enfermedad",
+    "EventoVolcanico",
+    "Farmacia",
+    "ModeloEntrenado",
+    "Municipio",
+    "Prediccion",
+    "RegistroClima",
+    "ReporteFarmacia",
+    "Rol",
+    "TendenciaBusqueda",
+    "Usuario",
 ]
