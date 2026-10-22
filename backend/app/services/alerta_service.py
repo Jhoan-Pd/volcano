@@ -69,16 +69,17 @@ class AlertaService:
         from app.services.dashboard_service import DashboardService
         from app.services.prediccion_service import PrediccionService
 
-        dash = DashboardService(self.db)
         pred = PrediccionService(self.db)
+        dash = DashboardService(self.db, predicciones=pred)  # comparten la caché de modelos y predicciones
         try:
             anio, semana = dash._semana_referencia()
         except NoEncontradoError:
             return []
         salida = []
+        municipios = MunicipioRepository(self.db).activos()
         for enf in EnfermedadRepository(self.db).activas():
             modelo = pred.modelo_activo(enf.id)
-            for m in MunicipioRepository(self.db).activos():
+            for m in municipios:
                 r = dash.riesgo_enfermedad(m, enf, anio, semana)
                 if r.nivel in NIVELES_ALERTA:
                     salida.append(_Candidata(

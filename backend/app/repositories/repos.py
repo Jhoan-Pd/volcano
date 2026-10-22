@@ -74,25 +74,11 @@ class RegistroClimaRepository(BaseRepository[RegistroClima]):
         return self.db.scalars(stmt).first()
 
     def upsert_lote(self, municipio_id: int, filas: list[dict]) -> int:
-        """Inserta o actualiza por (municipio_id, fecha). Portable entre SQLite y PostgreSQL."""
-        if not filas:
-            return 0
-        fechas = [f["fecha"] for f in filas]
-        existentes = {
-            r.fecha: r for r in self.db.scalars(
-                select(RegistroClima).where(RegistroClima.municipio_id == municipio_id,
-                                            RegistroClima.fecha.in_(fechas))
-            )
-        }
-        for f in filas:
-            r = existentes.get(f["fecha"])
-            if r is None:
-                self.db.add(RegistroClima(municipio_id=municipio_id, **f))
-            else:
-                for k, v in f.items():
-                    setattr(r, k, v)
-        self.db.commit()
-        return len(filas)
+        """Inserta o actualiza los días de un municipio por (municipio_id, fecha). Devuelve cuántos guardó."""
+        filas = [{**f, "municipio_id": municipio_id} for f in filas]
+        ins, act = self.upsert(filas, ("municipio_id", "fecha"), [
+            RegistroClima.municipio_id == municipio_id, RegistroClima.fecha.in_([f["fecha"] for f in filas])])
+        return ins + act
 
 
 class CasoOficialRepository(BaseRepository[CasoOficial]):
@@ -112,31 +98,11 @@ class CasoOficialRepository(BaseRepository[CasoOficial]):
 
     def upsert_lote(self, filas: list[dict]) -> tuple[int, int]:
         """Inserta o actualiza por (municipio, enfermedad, año, semana). Devuelve (insertadas, actualizadas)."""
-        if not filas:
-            return 0, 0
-        claves = {(f["municipio_id"], f["enfermedad_id"]) for f in filas}
-        anios = {f["anio"] for f in filas}
-        existentes: dict[tuple, CasoOficial] = {}
-        for mid, eid in claves:
-            stmt = select(CasoOficial).where(CasoOficial.municipio_id == mid, CasoOficial.enfermedad_id == eid,
-                                             CasoOficial.anio.in_(anios))
-            for c in self.db.scalars(stmt):
-                existentes[(c.municipio_id, c.enfermedad_id, c.anio, c.semana_epi)] = c
-        insertadas = actualizadas = 0
-        for f in filas:
-            clave = (f["municipio_id"], f["enfermedad_id"], f["anio"], f["semana_epi"])
-            actual = existentes.get(clave)
-            if actual is None:
-                nuevo = CasoOficial(**f)
-                self.db.add(nuevo)
-                existentes[clave] = nuevo
-                insertadas += 1
-            else:
-                for k, v in f.items():
-                    setattr(actual, k, v)
-                actualizadas += 1
-        self.db.commit()
-        return insertadas, actualizadas
+        return self.upsert(filas, ("municipio_id", "enfermedad_id", "anio", "semana_epi"), [
+            CasoOficial.municipio_id.in_({f["municipio_id"] for f in filas}),
+            CasoOficial.enfermedad_id.in_({f["enfermedad_id"] for f in filas}),
+            CasoOficial.anio.in_({f["anio"] for f in filas}),
+        ])
 
     def semanas(self, municipio_id: int, enfermedad_id: int, pares: list[tuple[int, int]]) -> list[CasoOficial]:
         if not pares:
@@ -167,23 +133,7 @@ class TendenciaRepository(BaseRepository[TendenciaBusqueda]):
         return self.db.scalars(stmt).first()
 
     def upsert_lote(self, filas: list[dict]) -> int:
-        """Inserta o actualiza por (termino, region, anio, semana_epi)."""
-        if not filas:
-            return 0
-        terminos = {f["termino"] for f in filas}
-        existentes = {
-            (t.termino, t.region, t.anio, t.semana_epi): t
-            for t in self.db.scalars(select(TendenciaBusqueda).where(TendenciaBusqueda.termino.in_(terminos)))
-        }
-        for f in filas:
-            clave = (f["termino"], f["region"], f["anio"], f["semana_epi"])
-            actual = existentes.get(clave)
-            if actual is None:
-                nuevo = TendenciaBusqueda(**f)
-                self.db.add(nuevo)
-                existentes[clave] = nuevo
-            else:
-                for k, v in f.items():
-                    setattr(actual, k, v)
-        self.db.commit()
-        return len(filas)
+        """Inserta o actualiza por (termino, region, anio, semana_epi). Devuelve cuántas guardó."""
+        ins, act = self.upsert(filas, ("termino", "region", "anio", "semana_epi"),
+                               [TendenciaBusqueda.termino.in_({f["termino"] for f in filas})])
+        return ins + act
