@@ -15,6 +15,7 @@ from sqlalchemy import delete, select, update
 
 from app.core.epi import desplazar, etiqueta, inicio_semana
 from app.core.errors import ConflictoError, NoEncontradoError
+from app.core.texto import numero_es
 from app.db.session import SessionLocal
 from app.ml.dataset import FEATURES, HORIZONTES, ConstructorDataset, ultima_fila_por_municipio
 from app.ml.entrenador import DatosInsuficientesError, Entrenador
@@ -28,18 +29,8 @@ from app.schemas.modelo import (
     PuntoBacktest, PuntoPrediccion, ResumenPrediccion,
 )
 from app.services import riesgo_service as rs
-from app.services.tendencia_service import terminos_de
 
 logger = logging.getLogger("predictor.modelo")
-
-
-def _num(v: float) -> str:
-    """Número con coma decimal, como se escribe en Colombia (118,5)."""
-    return f"{v:.1f}".replace(".", ",")
-
-
-def _lista(texto: str | None) -> list[str]:
-    return [t.strip() for t in (texto or "").split(",") if t.strip()]
 
 
 def modelo_out(m: ModeloEntrenado, codigo: str) -> ModeloOut:
@@ -117,7 +108,7 @@ class PrediccionService:
             return 0
         art = Entrenador.deserializar(modelo.artefacto)
         medianas, cuantiles = art["medianas"], art["cuantiles"]
-        terminos, categorias = terminos_de(enf), _lista(enf.categorias_farmacia)
+        terminos, categorias = enf.lista_terminos, enf.lista_categorias_farmacia
         nuevas = 0
         for _, fila in ultima_fila_por_municipio(df).iterrows():
             mid = int(fila["municipio_id"])
@@ -192,7 +183,7 @@ class PrediccionService:
             modelo=ModeloResumen(id=m.id, algoritmo=m.algoritmo, fecha_entrenamiento=m.fecha_entrenamiento,
                                  mae_base=m.mae_base, mae_modelo=m.mae_modelo, rmse_base=m.rmse_base,
                                  rmse_modelo=m.rmse_modelo),
-            nivel_max=rs.nivel_maximo([p.nivel for p in puntos]) if puntos else None, puntos=puntos, backtest=backtest)
+            nivel_max=NivelRiesgo.peor(p.nivel for p in puntos).value if puntos else None, puntos=puntos, backtest=backtest)
 
     def resumen(self, municipio_id: int, enfermedad_id: int) -> ResumenPrediccion | None:
         m = self.modelo_activo(enfermedad_id)
@@ -201,7 +192,7 @@ class PrediccionService:
         preds = self._ultimas(m.id, municipio_id)
         if not preds:
             return None
-        pico = max(preds, key=lambda p: (rs.ORDEN_NIVELES.index(NivelRiesgo(p.nivel_riesgo)), p.casos_esperados))
+        pico = max(preds, key=lambda p: (NivelRiesgo(p.nivel_riesgo).rango, p.casos_esperados))
         h1 = preds[0]
         return ResumenPrediccion(nivel_max=pico.nivel_riesgo, semana_pico=etiqueta(pico.anio, pico.semana_epi),
                                  casos_esperados_h1=h1.casos_esperados, limite_inferior_h1=h1.limite_inferior,
@@ -217,7 +208,7 @@ class PrediccionService:
         if not preds:
             raise NoEncontradoError("Aún no hay predicciones. Un administrador debe entrenar el modelo.")
         if horizonte is None:  # por defecto se explica la semana de mayor riesgo
-            p = max(preds, key=lambda x: (rs.ORDEN_NIVELES.index(NivelRiesgo(x.nivel_riesgo)), x.casos_esperados))
+            p = max(preds, key=lambda x: (NivelRiesgo(x.nivel_riesgo).rango, x.casos_esperados))
         else:
             p = next((x for x in preds if x.horizonte == horizonte), preds[0])
         exp = p.explicacion or {}
@@ -226,10 +217,10 @@ class PrediccionService:
         umbral = max(0.1, 0.05 * p.casos_esperados)
         suben = [f for f in factores if f.direccion == "sube" and f.contribucion >= umbral]
         if suben:
-            resumen = (f"Para la semana {etiqueta(p.anio, p.semana_epi)} se esperan {_num(p.casos_esperados)} casos. "
+            resumen = (f"Para la semana {etiqueta(p.anio, p.semana_epi)} se esperan {numero_es(p.casos_esperados)} casos. "
                        f"Lo que más empuja la predicción hacia arriba: {', '.join(f.grupo.lower() for f in suben[:3])}.")
         else:
-            resumen = (f"Para la semana {etiqueta(p.anio, p.semana_epi)} se esperan {_num(p.casos_esperados)} casos; "
+            resumen = (f"Para la semana {etiqueta(p.anio, p.semana_epi)} se esperan {numero_es(p.casos_esperados)} casos; "
                        "ninguna señal está por encima de su valor típico.")
         return ExplicacionPrediccion(
             municipio_id=muni.id, municipio=muni.nombre, enfermedad_id=enf.id, enfermedad=enf.nombre,

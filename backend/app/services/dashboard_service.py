@@ -6,6 +6,7 @@ from sqlalchemy import select
 from app.core.epi import desplazar, etiqueta, inicio_semana, iterar_semanas
 from app.core.errors import NoEncontradoError
 from app.models import CasoOficial, Enfermedad, Municipio
+from app.models.enums import NivelRiesgo
 from app.repositories.repos import (
     CasoOficialRepository, EnfermedadRepository, EventoVolcanicoRepository, MunicipioRepository,
 )
@@ -73,7 +74,7 @@ class DashboardService:
             umbrales=Umbrales(amarillo=u.amarillo, naranja=u.naranja, rojo=u.rojo) if u
             else Umbrales(amarillo=0, naranja=0, rojo=0),
             nivel=nivel.value, es_simulado=simulado,
-            recomendaciones=[r.strip() for r in (enf.recomendaciones or "").splitlines() if r.strip()],
+            recomendaciones=enf.lista_recomendaciones,
             prediccion=self.predicciones.resumen(m.id, enf.id),
         )
 
@@ -136,8 +137,8 @@ class DashboardService:
             salida.append(RiesgoMunicipio(
                 municipio_id=m.id, municipio=m.nombre, codigo_divipola=m.codigo_divipola,
                 latitud=m.latitud, longitud=m.longitud,
-                nivel_max=rs.nivel_maximo(list(detalle.values())), detalle=detalle,
-                nivel_max_predicho=rs.nivel_maximo(list(predicho.values())) if predicho else None,
+                nivel_max=NivelRiesgo.peor(detalle.values()).value, detalle=detalle,
+                nivel_max_predicho=NivelRiesgo.peor(predicho.values()).value if predicho else None,
                 detalle_predicho=predicho,
             ))
         return salida

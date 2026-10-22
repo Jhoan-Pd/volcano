@@ -23,7 +23,6 @@ ANIOS_HISTORICOS = 5
 VENTANA_SEMANAS = 1
 MIN_CASOS_ALERTA = 3
 
-ORDEN_NIVELES = [NivelRiesgo.VERDE, NivelRiesgo.AMARILLO, NivelRiesgo.NARANJA, NivelRiesgo.ROJO]
 
 
 @dataclass(frozen=True)
@@ -63,8 +62,3 @@ def clasificar(casos: float, u: UmbralesCanal | None) -> NivelRiesgo:
         return NivelRiesgo.AMARILLO
     return NivelRiesgo.VERDE
 
-
-def nivel_maximo(niveles: list[str]) -> str:
-    if not niveles:
-        return NivelRiesgo.VERDE.value
-    return max(niveles, key=lambda n: ORDEN_NIVELES.index(NivelRiesgo(n)))
