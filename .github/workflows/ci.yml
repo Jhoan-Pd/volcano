@@ -20,6 +20,8 @@ jobs:
           cache: pip
           cache-dependency-path: backend/requirements*.txt
       - run: pip install -r requirements-dev.txt
+      - name: Calidad de código (ruff)
+        run: ruff check app tests
       - name: Migraciones sobre una BD vacía
         env:
           DATABASE_URL: sqlite:///./ci.db
