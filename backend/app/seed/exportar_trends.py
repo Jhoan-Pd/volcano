@@ -23,7 +23,8 @@ def exportar(salida: Path = SALIDA) -> int:
         w = csv.writer(fh)
         w.writerow(["termino", "fecha_semana", "indice", "region", "es_simulado"])
         n = 0
-        for t in db.scalars(select(TendenciaBusqueda).order_by(TendenciaBusqueda.termino, TendenciaBusqueda.fecha_semana)):
+        orden = (TendenciaBusqueda.termino, TendenciaBusqueda.fecha_semana)
+        for t in db.scalars(select(TendenciaBusqueda).order_by(*orden)):
             w.writerow([t.termino, t.fecha_semana.isoformat(), t.indice, t.region, int(t.es_simulado)])
             n += 1
     return n

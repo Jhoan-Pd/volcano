@@ -4,7 +4,7 @@ from datetime import datetime
 from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Index, Integer, LargeBinary, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base, TimestampMixin, ahora_utc
+from app.db.base import Base, TimestampMixin, ahora_utc, fk
 from app.models.enums import OrigenAlerta
 
 
@@ -12,7 +12,7 @@ class ModeloEntrenado(TimestampMixin, Base):
     __tablename__ = "modelos_entrenados"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    enfermedad_id: Mapped[int] = mapped_column(ForeignKey("enfermedades.id", ondelete="CASCADE"), index=True, nullable=False)
+    enfermedad_id: Mapped[int] = fk("enfermedades.id")
     algoritmo: Mapped[str] = mapped_column(String(60), nullable=False)
     version: Mapped[str] = mapped_column(String(30), nullable=False)
     fecha_entrenamiento: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=ahora_utc, nullable=False)
@@ -32,9 +32,9 @@ class Prediccion(TimestampMixin, Base):
     __tablename__ = "predicciones"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    modelo_id: Mapped[int] = mapped_column(ForeignKey("modelos_entrenados.id", ondelete="CASCADE"), index=True, nullable=False)
-    municipio_id: Mapped[int] = mapped_column(ForeignKey("municipios.id", ondelete="CASCADE"), index=True, nullable=False)
-    enfermedad_id: Mapped[int] = mapped_column(ForeignKey("enfermedades.id", ondelete="CASCADE"), index=True, nullable=False)
+    modelo_id: Mapped[int] = fk("modelos_entrenados.id")
+    municipio_id: Mapped[int] = fk("municipios.id")
+    enfermedad_id: Mapped[int] = fk("enfermedades.id")
     anio: Mapped[int] = mapped_column(Integer, nullable=False)
     semana_epi: Mapped[int] = mapped_column(Integer, nullable=False)
     horizonte: Mapped[int] = mapped_column(Integer, nullable=False)  # 1..4 semanas adelante
@@ -51,8 +51,8 @@ class Alerta(TimestampMixin, Base):
                             "semana_epi"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    municipio_id: Mapped[int] = mapped_column(ForeignKey("municipios.id", ondelete="CASCADE"), index=True, nullable=False)
-    enfermedad_id: Mapped[int] = mapped_column(ForeignKey("enfermedades.id", ondelete="CASCADE"), index=True, nullable=False)
+    municipio_id: Mapped[int] = fk("municipios.id")
+    enfermedad_id: Mapped[int] = fk("enfermedades.id")
     prediccion_id: Mapped[int | None] = mapped_column(ForeignKey("predicciones.id", ondelete="SET NULL"))
     anio: Mapped[int] = mapped_column(Integer, nullable=False)
     semana_epi: Mapped[int] = mapped_column(Integer, nullable=False)

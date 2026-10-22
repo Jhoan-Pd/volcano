@@ -49,11 +49,12 @@ def test_dataset_sin_fuga_de_datos(db, eda_con_casos):
     db.commit()
     try:
         df2 = ConstructorDataset(db).construir(eda)
-        fila2 = df2[(df2["municipio_id"] == fila["municipio_id"]) & (df2["anio"] == 2025) & (df2["semana_epi"] == 10)].iloc[0]
+        misma = (df2["municipio_id"] == fila["municipio_id"]) & (df2["anio"] == 2025) & (df2["semana_epi"] == 10)
+        fila2 = df2[misma].iloc[0]
         pd.testing.assert_series_equal(fila[FEATURES], fila2[FEATURES], check_names=False)
         assert fila2["y_h1"] == fila["y_h1"] + 500  # el objetivo sí cambia: es el futuro
     finally:
-        for c, v in zip(futuros, originales):
+        for c, v in zip(futuros, originales, strict=True):
             c.casos = v
         db.commit()
 

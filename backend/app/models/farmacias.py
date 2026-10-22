@@ -1,7 +1,7 @@
 from sqlalchemy import Boolean, Float, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base, TimestampMixin
+from app.db.base import Base, TimestampMixin, fk
 
 
 class Farmacia(TimestampMixin, Base):
@@ -12,7 +12,7 @@ class Farmacia(TimestampMixin, Base):
     nit: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
     direccion: Mapped[str | None] = mapped_column(String(200))
     telefono: Mapped[str | None] = mapped_column(String(30))
-    municipio_id: Mapped[int] = mapped_column(ForeignKey("municipios.id", ondelete="RESTRICT"), index=True, nullable=False)
+    municipio_id: Mapped[int] = fk("municipios.id", ondelete="RESTRICT")
     # Usuario con rol FARMACIA que reporta en nombre de esta farmacia (1 a 1)
     usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id", ondelete="SET NULL"), unique=True)
     latitud: Mapped[float | None] = mapped_column(Float)
@@ -28,7 +28,7 @@ class ReporteFarmacia(TimestampMixin, Base):
     __table_args__ = (UniqueConstraint("farmacia_id", "anio", "semana_epi", "categoria"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    farmacia_id: Mapped[int] = mapped_column(ForeignKey("farmacias.id", ondelete="CASCADE"), index=True, nullable=False)
+    farmacia_id: Mapped[int] = fk("farmacias.id")
     anio: Mapped[int] = mapped_column(Integer, nullable=False)
     semana_epi: Mapped[int] = mapped_column(Integer, nullable=False)
     categoria: Mapped[str] = mapped_column(String(30), nullable=False)  # CategoriaProducto

@@ -42,7 +42,8 @@ def test_importar_eventos_valida_ceniza(client, admin_headers, db):
 
 
 def test_importar_tendencias_y_clima(client, admin_headers):
-    r = _subir(client, admin_headers, "tendencias", "termino,fecha_semana,indice\nfiebre,2019-01-06,40\ntos,2019-01-06,140\n")
+    r = _subir(client, admin_headers, "tendencias",
+               "termino,fecha_semana,indice\nfiebre,2019-01-06,40\ntos,2019-01-06,140\n")
     assert r.json()["insertadas"] == 1 and r.json()["errores"][0]["fila"] == 3
     r = _subir(client, admin_headers, "clima",
                "cod_divipola,fecha,temp_max_c,temp_min_c,temp_media_c,precipitacion_mm,humedad_relativa_pct\n"

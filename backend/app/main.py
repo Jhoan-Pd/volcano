@@ -30,7 +30,7 @@ def _entrenar_si_falta() -> None:
         if hay_casos and not hay_modelos:
             lanzar_en_hilo(nombre="entrenamiento-inicial")
             logger.info("Sin modelos entrenados: entrenamiento inicial en segundo plano")
-    except Exception as exc:  # noqa: BLE001 - nunca impedir que la API arranque
+    except Exception as exc:
         logger.warning("No se pudo lanzar el entrenamiento inicial: %s", exc)
 
 

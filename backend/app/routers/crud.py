@@ -18,7 +18,7 @@ from app.schemas.comun import Pagina
 from app.services.crud_service import CrudService
 
 
-def crear_router_crud(
+def crear_router_crud(  # noqa: PLR0913 - fábrica configurable: todos los parámetros son keyword-only
     *, prefijo: str, etiqueta: str, servicio: type[CrudService],
     esquema_crear: type[BaseModel], esquema_actualizar: type[BaseModel], esquema_salida: type[BaseModel],
     lectura_publica: bool = True, filtros: tuple[str, ...] = (), registrar_autor: str | None = None,
@@ -53,7 +53,8 @@ def crear_router_crud(
                    _: Usuario = Depends(solo_admin)):
         return servicio(db).actualizar(id_, entrada)
 
-    @router.delete("/{id_}", status_code=status.HTTP_204_NO_CONTENT, summary=f"Eliminar ({etiqueta.lower()}) — solo ADMIN")
+    @router.delete("/{id_}", status_code=status.HTTP_204_NO_CONTENT,
+                   summary=f"Eliminar ({etiqueta.lower()}) — solo ADMIN")
     def eliminar(id_: int, db: Session = Depends(get_db), _: Usuario = Depends(solo_admin)):
         servicio(db).eliminar(id_)
 

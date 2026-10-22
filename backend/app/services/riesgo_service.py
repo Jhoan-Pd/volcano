@@ -35,12 +35,8 @@ class UmbralesCanal:
 def semanas_referencia(anio: int, semana: int, anios: int = ANIOS_HISTORICOS,
                        ventana: int = VENTANA_SEMANAS) -> list[tuple[int, int]]:
     """Pares (año, semana) históricos comparables con la semana objetivo."""
-    pares = []
-    for a in range(anio - anios, anio):
-        s = min(semana, semanas_del_anio(a))  # años sin semana 53 usan la 52
-        for d in range(-ventana, ventana + 1):
-            pares.append(desplazar(a, s, d))
-    return pares
+    return [desplazar(a, min(semana, semanas_del_anio(a)), d)  # años sin semana 53 usan la 52
+            for a in range(anio - anios, anio) for d in range(-ventana, ventana + 1)]
 
 
 def calcular_umbrales(valores: list[float], p_amarillo: int, p_naranja: int, p_rojo: int) -> UmbralesCanal | None:

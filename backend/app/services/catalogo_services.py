@@ -7,7 +7,10 @@ from app.core.errors import ConflictoError, NoEncontradoError, ReglaNegocioError
 from app.models import CasoOficial, EventoVolcanico, Farmacia, Municipio, Usuario
 from app.models.enums import RolNombre
 from app.repositories.repos import (
-    EnfermedadRepository, EventoVolcanicoRepository, FarmaciaRepository, MunicipioRepository,
+    EnfermedadRepository,
+    EventoVolcanicoRepository,
+    FarmaciaRepository,
+    MunicipioRepository,
 )
 from app.schemas.catalogos import EventoVolcanicoBase
 from app.services.crud_service import CrudService

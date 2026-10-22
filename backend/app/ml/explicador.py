@@ -43,7 +43,7 @@ def _ok(v) -> bool:
     return v is not None and not (isinstance(v, float) and math.isnan(v))
 
 
-def señales(fila: pd.Series, medianas: dict, terminos: list[str], categorias: list[str]) -> dict[str, str]:
+def senales(fila: pd.Series, medianas: dict, terminos: list[str], categorias: list[str]) -> dict[str, str]:
     """Frases que describen qué está pasando con cada grupo de variables en la semana actual."""
     m: dict[str, str] = {}
     if _ok(fila.get("y_l0")) and _ok(fila.get("y_ma8")):
@@ -59,10 +59,12 @@ def señales(fila: pd.Series, medianas: dict, terminos: list[str], categorias: l
     if _ok(fila.get("farm_l0")):
         cambio = fila["farm_l0"] - 100
         nombres = ", ".join(NOMBRES_CATEGORIA.get(c, c.lower()) for c in categorias) or "productos asociados"
-        m["Ventas en farmacias"] = f"Las ventas de {nombres} en las farmacias del municipio están {_pct(cambio)} de lo normal."
+        m["Ventas en farmacias"] = (f"Las ventas de {nombres} en las farmacias del municipio están {_pct(cambio)} "
+                                    "de lo normal.")
     partes = []
     if _ok(fila.get("lluvia_l2_6")) and _ok(medianas.get("lluvia_l2_6")) and medianas["lluvia_l2_6"] > 0:
-        partes.append(f"lluvia de las semanas previas {_pct((fila['lluvia_l2_6'] / medianas['lluvia_l2_6'] - 1) * 100)}")
+        cambio_lluvia = (fila['lluvia_l2_6'] / medianas['lluvia_l2_6'] - 1) * 100
+        partes.append(f"lluvia de las semanas previas {_pct(cambio_lluvia)}")
     if _ok(fila.get("temp_l0")) and _ok(medianas.get("temp_l0")):
         partes.append(f"temperatura {'+' if fila['temp_l0'] >= medianas['temp_l0'] else '−'}"
                       f"{numero_es(abs(fila['temp_l0'] - medianas['temp_l0']))} °C")
@@ -84,7 +86,7 @@ def señales(fila: pd.Series, medianas: dict, terminos: list[str], categorias: l
 def explicar(modelo, x: pd.DataFrame, fila: pd.Series, medianas: dict, terminos: list[str],
              categorias: list[str]) -> dict:
     base, contrib = contribuciones(modelo, x, medianas)
-    frases = señales(fila, medianas, terminos, categorias)
+    frases = senales(fila, medianas, terminos, categorias)
     factores = [
         {"grupo": g, "contribucion": c, "direccion": "sube" if c > 0 else "baja" if c < 0 else "neutral",
          "mensaje": frases.get(g)}

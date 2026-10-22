@@ -2,17 +2,15 @@
 
 Las subclases sobrescriben `validar()` para reglas específicas de cada entidad.
 """
-from typing import Any, Generic, TypeVar
+from typing import Any
 
 from pydantic import BaseModel
 
 from app.core.errors import ConflictoError, NoEncontradoError
 from app.repositories.base import BaseRepository
 
-ModelT = TypeVar("ModelT")
 
-
-class CrudService(Generic[ModelT]):
+class CrudService[ModelT]:
     repo_cls: type[BaseRepository]
     nombre_entidad: str = "Registro"
     #: campos con restricción UNIQUE que se validan antes de insertar (mensaje claro, no un 500)

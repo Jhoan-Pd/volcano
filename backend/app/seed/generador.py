@@ -5,9 +5,9 @@ Todo lo que sale de aquí se guarda con es_simulado=True para que la interfaz lo
 - Clima diario: solo se usa si Open-Meteo no responde. Climatología bimodal de Pasto
   (lluvias mar-may y oct-dic, verano jul-ago), gradiente térmico de -0.55 °C/100 m y
   anomalías ENSO aproximadas (La Niña 2020-2022 más húmedo; El Niño 2023-2024 más seco y cálido).
-- Búsquedas (Trends) y ventas de farmacias: señales que se adelantan ~1 semana a los casos.
+- Búsquedas (Trends) y ventas de farmacias: senales que se adelantan ~1 semana a los casos.
 - Casos semanales: modelo Poisson-Gamma (binomial negativa) cuya media depende de la estacionalidad,
-  del clima con rezagos, de la ceniza y del SO2. Así el modelo de la Fase 2 tiene señales reales
+  del clima con rezagos, de la ceniza y del SO2. Así el modelo de la Fase 2 tiene senales reales
   que aprender, y la relación clima→casos es explicable en la sustentación.
 """
 import math
@@ -66,12 +66,15 @@ def clima_semanal(filas: list[dict]) -> dict[tuple[int, int], dict[str, float]]:
             grupos[semana_de(f["fecha"])].append(f)
     salida = {}
     for k, regs in grupos.items():
-        def prom(c):
-            v = [r[c] for r in regs if r[c] is not None]
-            return sum(v) / len(v) if v else None
         lluvia = [r["precipitacion_mm"] for r in regs if r["precipitacion_mm"] is not None]
-        salida[k] = {"t": prom("temp_media_c"), "h": prom("humedad_relativa_pct"), "p": sum(lluvia) if lluvia else None}
+        salida[k] = {"t": _promedio(regs, "temp_media_c"), "h": _promedio(regs, "humedad_relativa_pct"),
+                     "p": sum(lluvia) if lluvia else None}
     return salida
+
+
+def _promedio(registros: list[dict], campo: str) -> float | None:
+    valores = [r[campo] for r in registros if r[campo] is not None]
+    return sum(valores) / len(valores) if valores else None
 
 
 def _media(clima: dict, campo: str) -> float:
@@ -79,7 +82,7 @@ def _media(clima: dict, campo: str) -> float:
     return float(np.mean(v)) if v else 0.0
 
 
-def generar_casos(
+def generar_casos(  # noqa: PLR0913 - todos keyword-only; agruparlos en un objeto no aclara nada
     *, municipio: str, poblacion: int, base: dict[str, float], clima: dict, so2: dict[tuple[int, int], float],
     ceniza: dict[tuple[int, int], int], desde: tuple[int, int], hasta: tuple[int, int], semilla: int,
 ) -> dict[str, list[tuple[int, int, int]]]:
@@ -124,16 +127,16 @@ def generar_casos(
 
         for codigo, lam, k in (("IRA", lam_ira, 25), ("EDA", lam_eda, 20), ("DENGUE", lam_den, 3),
                                ("RESP_CENIZA", lam_cen, 4)):
-            lam = max(lam, 0.001)
-            casos = int(rng.poisson(rng.gamma(k, lam / k)))  # binomial negativa
+            tasa = max(lam, 0.001)
+            casos = int(rng.poisson(rng.gamma(k, tasa / k)))  # binomial negativa
             salida[codigo].append((a, s, casos))
     return salida
 
 
-# ── Fase 2: señales tempranas simuladas ───────────────────────────────────────
+# ── Fase 2: senales tempranas simuladas ───────────────────────────────────────
 # Hipótesis que se simula (y que el modelo debe descubrir): la gente busca síntomas y compra
 # medicamentos ANTES de que el caso llegue a SIVIGILA (consulta + notificación tardan ~1 semana).
-# Por eso cada señal mezcla los casos de la semana t con los de la semana t+1.
+# Por eso cada senal mezcla los casos de la semana t con los de la semana t+1.
 
 def _serie_adelantada(serie: dict[tuple[int, int], int], a: int, s: int, peso_futuro: float = 0.45) -> float:
     actual = serie.get((a, s), 0)
@@ -162,9 +165,10 @@ def generar_tendencias(
         crudo = {}
         ruido = 0.0
         for a, s in iterar_semanas(desde, hasta):
-            señal = sum(_serie_adelantada(casos[c], a, s) / medias[c] for c in enfermedades if c in casos and c in medias)
+            senal = sum(_serie_adelantada(casos[c], a, s) / medias[c]
+                        for c in enfermedades if c in casos and c in medias)
             ruido = 0.6 * ruido + rng.normal(0, 0.10)  # el interés de búsqueda tiene inercia
-            crudo[(a, s)] = max(0.0, (0.35 + señal / max(len(enfermedades), 1)) * math.exp(ruido))
+            crudo[(a, s)] = max(0.0, (0.35 + senal / max(len(enfermedades), 1)) * math.exp(ruido))
         tope = max(crudo.values(), default=1.0) or 1.0
         for (a, s), v in crudo.items():
             filas.append({"termino": termino, "region": "CO-NAR", "anio": a, "semana_epi": s,
@@ -202,8 +206,8 @@ def generar_reportes_farmacia(
         for a, s in iterar_semanas(desde, hasta):
             if rng.random() < 0.04:
                 continue  # semanas sin reporte (realismo: no todas las farmacias reportan siempre)
-            for cat, base in UNIDADES_BASE.items():
-                base = base * escala * (3.0 if cat == "REPELENTES" and calido else 1.0)
+            for cat, unidades in UNIDADES_BASE.items():
+                base = unidades * escala * (3.0 if cat == "REPELENTES" and calido else 1.0)
                 exceso = sum(0.55 * (_serie_adelantada(series[c], a, s) / medias[c] - 1)
                              for c in por_categoria.get(cat, []) if c in series and c in medias)
                 if cat == "TAPABOCAS" and a == 2020 and s >= 12:

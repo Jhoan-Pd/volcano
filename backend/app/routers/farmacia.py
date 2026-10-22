@@ -46,7 +46,8 @@ def actualizar(entrada: ReporteSemanalUpdate, anio: int = Path(ge=2015, le=2100)
     return ReporteFarmaciaService(db, usuario).actualizar(anio, semana, entrada.items, farmacia_id)
 
 
-@router.delete("/reportes/{anio}/{semana}", status_code=status.HTTP_204_NO_CONTENT, summary="Eliminar el reporte de una semana")
+@router.delete("/reportes/{anio}/{semana}", status_code=status.HTTP_204_NO_CONTENT,
+               summary="Eliminar el reporte de una semana")
 def eliminar(anio: int = Path(ge=2015, le=2100), semana: int = Path(ge=1, le=53), farmacia_id: int | None = Query(None),
              db: Session = Depends(get_db), usuario: Usuario = Depends(farmacia_o_admin)):
     ReporteFarmaciaService(db, usuario).eliminar(anio, semana, farmacia_id)

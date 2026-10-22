@@ -80,7 +80,7 @@ class SivigilaFuente(FuenteDatos):
                 "cod_divipola": str(int(float(fila["cod_mun_o"]))).zfill(5),
                 "anio": int(float(fila["ano"])),
                 "semana_epi": int(float(fila["semana"])),
-                "casos": int(round(float(fila.get("casos", fila.get("sum_conteo", 0)) or 0))),
+                "casos": round(float(fila.get("casos", fila.get("sum_conteo", 0)) or 0)),
             }
         except (KeyError, TypeError, ValueError):
             return None  # fila incompleta: se descarta

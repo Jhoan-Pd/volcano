@@ -1,7 +1,7 @@
 """Clase base declarativa y mixins comunes."""
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, MetaData
+from sqlalchemy import DateTime, ForeignKey, MetaData
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 # Convención de nombres: Alembic genera nombres de índices/llaves estables y legibles.
@@ -14,8 +14,17 @@ NAMING = {
 }
 
 
+def fk(destino: str, ondelete: str = "CASCADE"):
+    """Clave foránea obligatoria e indexada: la columna que más se repetía en los modelos.
+
+    fk("municipios.id") equivale a
+    mapped_column(ForeignKey("municipios.id", ondelete="CASCADE"), index=True, nullable=False)
+    """
+    return mapped_column(ForeignKey(destino, ondelete=ondelete), index=True, nullable=False)
+
+
 def ahora_utc() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class Base(DeclarativeBase):

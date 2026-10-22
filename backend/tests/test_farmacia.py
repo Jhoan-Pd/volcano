@@ -34,7 +34,8 @@ def test_mi_farmacia_lista_semanas_reportables(client, farmacia_headers, farmaci
     assert r.status_code == 200, r.text
     datos = r.json()
     assert datos["id"] == farmacia_demo and len(datos["semanas_reportables"]) == 8
-    assert (datos["semanas_reportables"][0]["anio"], datos["semanas_reportables"][0]["semana_epi"]) == ultima_semana_completa()
+    primera = datos["semanas_reportables"][0]
+    assert (primera["anio"], primera["semana_epi"]) == ultima_semana_completa()
 
 
 def test_crear_editar_y_eliminar_reporte(client, farmacia_headers, farmacia_demo):
@@ -78,7 +79,8 @@ def test_semana_futura_o_muy_antigua_rechazada(client, farmacia_headers, farmaci
 
 def test_admin_reporta_semanas_antiguas_indicando_farmacia(client, admin_headers, farmacia_demo):
     vieja = desplazar(*ultima_semana_completa(), -20)
-    assert client.post(f"{URL}/reportes", json=_cuerpo(*vieja), headers=admin_headers).status_code == 422  # falta farmacia_id
+    # Falta farmacia_id: el ADMIN debe indicar la farmacia
+    assert client.post(f"{URL}/reportes", json=_cuerpo(*vieja), headers=admin_headers).status_code == 422
     r = client.post(f"{URL}/reportes", json=_cuerpo(*vieja, farmacia_id=farmacia_demo), headers=admin_headers)
     assert r.status_code == 201, r.text
 

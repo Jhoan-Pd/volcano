@@ -29,7 +29,8 @@ def test_registro_ciudadano_y_contrasena_hasheada(client, db):
 
     from app.models import Usuario
 
-    r = client.post("/api/v1/auth/registro", json={"nombre": "Ana Pérez", "email": "Ana@Correo.co", "password": "clave1234"})
+    r = client.post("/api/v1/auth/registro",
+                    json={"nombre": "Ana Pérez", "email": "Ana@Correo.co", "password": "clave1234"})
     assert r.status_code == 201, r.text
     assert r.json()["rol"] == "CIUDADANO"
     u = db.scalar(select(Usuario).where(Usuario.email == "ana@correo.co"))
@@ -40,7 +41,8 @@ def test_registro_ciudadano_y_contrasena_hasheada(client, db):
 
 
 def test_registro_valida_contrasena_debil(client):
-    r = client.post("/api/v1/auth/registro", json={"nombre": "Luis", "email": "luis@correo.co", "password": "soloLetras"})
+    r = client.post("/api/v1/auth/registro",
+                    json={"nombre": "Luis", "email": "luis@correo.co", "password": "soloLetras"})
     assert r.status_code == 422
     assert r.json()["error"]["codigo"] == "VALIDACION"
 

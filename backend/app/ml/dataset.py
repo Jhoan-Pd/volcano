@@ -115,7 +115,7 @@ class ConstructorDataset:
             m = municipios.get(int(mid))
             if m is None:
                 continue
-            serie = dict(zip(zip(grupo["anio"], grupo["semana_epi"]), grupo["casos"]))
+            serie = dict(zip(zip(grupo["anio"], grupo["semana_epi"], strict=True), grupo["casos"], strict=True))
             y = np.array([serie.get(k, 0) for k in semanas], dtype=float)
             df = pd.DataFrame({"municipio_id": int(mid), "anio": [a for a, _ in semanas],
                                "semana_epi": [s for _, s in semanas], "t_idx": range(len(semanas)), "casos": y})
@@ -138,7 +138,7 @@ class ConstructorDataset:
                     vals.append(np.nan if v is None else (v.get(campo, np.nan) if campo else v))
                 return pd.Series(vals, dtype=float)
 
-            cm = lambda kk: (int(mid), *kk)  # noqa: E731 - clave de clima/farmacia/ceniza por municipio
+            cm = _clave_municipio(int(mid))  # clave (municipio, año, semana) de clima, farmacias y ceniza
             temp = col(clima, cm, "t")
             lluvia = col(clima, cm, "p")
             hum = col(clima, cm, "h")
@@ -170,6 +170,13 @@ class ConstructorDataset:
         datos.attrs["semanas"] = semanas
         datos.attrs["indice_semana"] = indice_semana
         return datos
+
+
+def _clave_municipio(municipio_id: int):
+    """Función que convierte (año, semana) en la clave (municipio, año, semana) de los diccionarios."""
+    def clave(semana: tuple[int, int]) -> tuple[int, int, int]:
+        return (municipio_id, *semana)
+    return clave
 
 
 def filas_entrenables(df: pd.DataFrame, h: int) -> pd.DataFrame:

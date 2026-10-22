@@ -47,7 +47,7 @@ class UsuarioService(CrudService[Usuario]):
         return r.id
 
     def _preparar(self, datos: dict[str, Any], actual: Usuario | None = None) -> dict[str, Any]:
-        if "email" in datos and datos["email"]:
+        if datos.get("email"):
             datos["email"] = datos["email"].lower()
             otro = self.repo.por_email(datos["email"])
             if otro and (actual is None or otro.id != actual.id):

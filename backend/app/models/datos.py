@@ -4,7 +4,7 @@ from datetime import date
 from sqlalchemy import Boolean, Date, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base, TimestampMixin
+from app.db.base import Base, TimestampMixin, fk
 
 
 class RegistroClima(TimestampMixin, Base):
@@ -13,7 +13,7 @@ class RegistroClima(TimestampMixin, Base):
     __table_args__ = (UniqueConstraint("municipio_id", "fecha"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    municipio_id: Mapped[int] = mapped_column(ForeignKey("municipios.id", ondelete="CASCADE"), index=True, nullable=False)
+    municipio_id: Mapped[int] = fk("municipios.id")
     fecha: Mapped[date] = mapped_column(Date, index=True, nullable=False)
     temp_max_c: Mapped[float | None] = mapped_column(Float)
     temp_min_c: Mapped[float | None] = mapped_column(Float)
@@ -47,8 +47,8 @@ class CasoOficial(TimestampMixin, Base):
     __table_args__ = (UniqueConstraint("municipio_id", "enfermedad_id", "anio", "semana_epi"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    municipio_id: Mapped[int] = mapped_column(ForeignKey("municipios.id", ondelete="CASCADE"), index=True, nullable=False)
-    enfermedad_id: Mapped[int] = mapped_column(ForeignKey("enfermedades.id", ondelete="CASCADE"), index=True, nullable=False)
+    municipio_id: Mapped[int] = fk("municipios.id")
+    enfermedad_id: Mapped[int] = fk("enfermedades.id")
     anio: Mapped[int] = mapped_column(Integer, nullable=False)
     semana_epi: Mapped[int] = mapped_column(Integer, nullable=False)
     casos: Mapped[int] = mapped_column(Integer, nullable=False)

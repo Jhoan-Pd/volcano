@@ -62,6 +62,9 @@ def _fecha(texto: str) -> date | None:
     return None
 
 
+# Primera columna de una exportación de trends.google.com según el idioma y la granularidad
+ENCABEZADOS_FECHA = ("semana", "week", "día", "dia", "day", "mes", "month")
+
 class CsvTrendsFuente(FuenteDatos):
     """Lee CSV de Google Trends. Acepta dos formatos:
 
@@ -84,7 +87,7 @@ class CsvTrendsFuente(FuenteDatos):
     def parsear(cls, contenido: str, region: str = "CO-NAR") -> list[dict[str, Any]]:
         lineas = contenido.lstrip("﻿").splitlines()
         filas: list[dict[str, Any]] = []
-        encabezado_largo = next((i for i, l in enumerate(lineas) if l.lower().startswith("termino,")), None)
+        encabezado_largo = next((i for i, linea in enumerate(lineas) if linea.lower().startswith("termino,")), None)
         if encabezado_largo is not None:
             lector = csv.DictReader(io.StringIO("\n".join(lineas[encabezado_largo:])))
             for r in lector:
@@ -97,8 +100,8 @@ class CsvTrendsFuente(FuenteDatos):
             return filas
 
         # Formato de Google: buscar la fila de encabezados ("Semana", "Week", "Día"...)
-        inicio = next((i for i, l in enumerate(lineas)
-                       if l.split(",")[0].strip().lower() in ("semana", "week", "día", "dia", "day", "mes", "month")), None)
+        inicio = next((i for i, linea in enumerate(lineas)
+                       if linea.split(",")[0].strip().lower() in ENCABEZADOS_FECHA), None)
         if inicio is None:
             raise FuenteDatosError("CSV de Trends sin encabezado reconocible")
         lector = csv.reader(io.StringIO("\n".join(lineas[inicio:])))
@@ -110,7 +113,7 @@ class CsvTrendsFuente(FuenteDatos):
             f = _fecha(r[0])
             if f is None:
                 continue
-            for termino, texto in zip(terminos, r[1:]):
+            for termino, texto in zip(terminos, r[1:], strict=False):  # filas incompletas: se ignora lo que falte
                 v = _valor(texto)
                 if v is not None:
                     filas.append(_fila(termino, region, f, v, cls.nombre))
@@ -145,7 +148,7 @@ class CsvTrendsFuente(FuenteDatos):
 
 
 def _cliente_pytrends():  # pragma: no cover - depende de la red de Google
-    from pytrends.request import TrendReq  # import diferido: pytrends es opcional
+    from pytrends.request import TrendReq  # noqa: PLC0415 - import diferido: pytrends es opcional y lento
 
     return TrendReq(hl="es-CO", tz=300, timeout=(10, 25), retries=1, backoff_factor=0.5)
 
@@ -214,7 +217,7 @@ class TrendsFuente(FuenteDatos):
                 self.ultima_fuente = self.nombre
                 logger.info("Google Trends: %d filas (%s)", len(filas), ", ".join(terminos))
                 return filas
-            except Exception as exc:  # noqa: BLE001 - pytrends lanza errores de muchos tipos
+            except Exception as exc:
                 logger.warning("pytrends falló (%s): se usa el CSV de respaldo", exc)
         filas = self.respaldo.obtener(terminos=terminos, region=region, desde=desde, hasta=hasta)
         self.ultima_fuente = self.respaldo.nombre
