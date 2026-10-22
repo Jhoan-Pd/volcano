@@ -107,8 +107,8 @@ class ReporteService:
         m = self.db.get(Municipio, municipio_id)
         if m is None:
             raise NoEncontradoError(f"Municipio {municipio_id} no existe")
-        dash = DashboardService(self.db)
         pred = PrediccionService(self.db)
+        dash = DashboardService(self.db, predicciones=pred)
         resumen = dash.resumen(m.id)
 
         estilos = getSampleStyleSheet()

@@ -1,4 +1,5 @@
 """Arma la información del dashboard público a partir de las series guardadas."""
+from collections import defaultdict
 from datetime import date, timedelta
 
 from sqlalchemy import select
@@ -18,14 +19,21 @@ from app.services import riesgo_service as rs
 from app.services.prediccion_service import PrediccionService
 
 
+Serie = dict[tuple[int, int], int]  # (año, semana) → casos
+
+
 class DashboardService:
-    def __init__(self, db):
+    def __init__(self, db, predicciones: PrediccionService | None = None):
         self.db = db
         self.municipios = MunicipioRepository(db)
         self.enfermedades = EnfermedadRepository(db)
         self.casos = CasoOficialRepository(db)
         self.eventos = EventoVolcanicoRepository(db)
-        self.predicciones = PrediccionService(db)
+        self.predicciones = predicciones or PrediccionService(db)
+        # Caché de la petición: enfermedad → municipio → serie, y municipios con datos simulados
+        self._series: dict[int, dict[int, Serie]] = {}
+        self._simulados: dict[int, set[int]] = {}
+        self._referencia: tuple[int, int] | None = None
 
     # ── utilidades ──────────────────────────────────────────────────────────
     def _municipio(self, municipio_id: int | None) -> Municipio:
@@ -39,12 +47,20 @@ class DashboardService:
             raise NoEncontradoError(f"Municipio {municipio_id} no existe")
         return m
 
-    def _serie_dict(self, municipio_id: int, enfermedad_id: int) -> tuple[dict[tuple[int, int], int], bool]:
-        filas = self.db.execute(
-            select(CasoOficial.anio, CasoOficial.semana_epi, CasoOficial.casos, CasoOficial.es_simulado)
-            .where(CasoOficial.municipio_id == municipio_id, CasoOficial.enfermedad_id == enfermedad_id)
-        ).all()
-        return {(a, s): c for a, s, c, _ in filas}, any(f[3] for f in filas)
+    def _serie_dict(self, municipio_id: int, enfermedad_id: int) -> tuple[Serie, bool]:
+        """Serie semanal de un municipio. La primera vez que se pide una enfermedad se cargan los
+        casos de TODOS los municipios en una consulta (antes: una consulta por municipio)."""
+        if enfermedad_id not in self._series:
+            series: dict[int, Serie] = defaultdict(dict)
+            simulados: set[int] = set()
+            for mid, a, s, c, sim in self.db.execute(
+                    select(CasoOficial.municipio_id, CasoOficial.anio, CasoOficial.semana_epi, CasoOficial.casos,
+                           CasoOficial.es_simulado).where(CasoOficial.enfermedad_id == enfermedad_id)):
+                series[mid][(a, s)] = c
+                if sim:
+                    simulados.add(mid)
+            self._series[enfermedad_id], self._simulados[enfermedad_id] = dict(series), simulados
+        return self._series[enfermedad_id].get(municipio_id, {}), municipio_id in self._simulados[enfermedad_id]
 
     @staticmethod
     def _umbrales(serie: dict, enf: Enfermedad, anio: int, semana: int) -> rs.UmbralesCanal | None:
@@ -52,10 +68,11 @@ class DashboardService:
         return rs.calcular_umbrales(valores, enf.umbral_amarillo_pct, enf.umbral_naranja_pct, enf.umbral_rojo_pct)
 
     def _semana_referencia(self) -> tuple[int, int]:
-        ref = self.casos.ultima_semana()
-        if ref is None:
-            raise NoEncontradoError("No hay casos registrados. Ejecuta el seed.")
-        return ref
+        if self._referencia is None:
+            self._referencia = self.casos.ultima_semana()
+            if self._referencia is None:
+                raise NoEncontradoError("No hay casos registrados. Ejecuta el seed.")
+        return self._referencia
 
     # ── casos de uso ────────────────────────────────────────────────────────
     def riesgo_enfermedad(self, m: Municipio, enf: Enfermedad, anio: int, semana: int) -> RiesgoEnfermedad:
