@@ -6,6 +6,7 @@ activo y conserva su artefacto serializado; los anteriores guardan sus métricas
 historial pero se les borra el binario (la BD gratuita tiene 0,5 GB).
 """
 import logging
+from collections import defaultdict
 import threading
 from datetime import datetime, timezone
 
@@ -46,10 +47,20 @@ def modelo_out(m: ModeloEntrenado, codigo: str) -> ModeloOut:
 
 
 class PrediccionService:
+    """Una instancia vive lo que dura una petición: guarda en memoria el modelo activo de cada
+    enfermedad y sus predicciones agrupadas por municipio, así el dashboard, las alertas y los
+    reportes (que preguntan por 6 municipios × 4 enfermedades) no repiten la misma consulta."""
+
     def __init__(self, db, entrenador: Entrenador | None = None):
         self.db = db
         self.entrenador = entrenador or Entrenador()
         self.enfermedades = EnfermedadRepository(db)
+        self._modelos: dict[int, ModeloEntrenado | None] = {}
+        self._vigentes: dict[int, dict[int, list[Prediccion]]] = {}  # modelo → municipio → predicciones
+
+    def _invalidar_cache(self) -> None:
+        self._modelos.clear()
+        self._vigentes.clear()
 
     # ── entrenamiento ─────────────────────────────────────────────────────────
     def entrenar(self, enfermedad_id: int | None = None) -> tuple[list[ModeloEntrenado], list[str]]:
@@ -83,15 +94,18 @@ class PrediccionService:
         )
         self.db.add(m)
         self.db.commit()
+        self._invalidar_cache()
         logger.info("Modelo %s: %s MAE %.3f (base %.3f)", enf.codigo, r.algoritmo, r.mae_modelo, r.mae_base)
         self.predecir_enfermedad(enf, m, df)
         return m
 
     # ── predicción ────────────────────────────────────────────────────────────
     def modelo_activo(self, enfermedad_id: int) -> ModeloEntrenado | None:
-        return self.db.scalars(select(ModeloEntrenado).where(
-            ModeloEntrenado.enfermedad_id == enfermedad_id, ModeloEntrenado.activo.is_(True))
-            .order_by(ModeloEntrenado.id.desc()).limit(1)).first()
+        if enfermedad_id not in self._modelos:
+            self._modelos[enfermedad_id] = self.db.scalars(select(ModeloEntrenado).where(
+                ModeloEntrenado.enfermedad_id == enfermedad_id, ModeloEntrenado.activo.is_(True))
+                .order_by(ModeloEntrenado.id.desc()).limit(1)).first()
+        return self._modelos[enfermedad_id]
 
     def predecir(self) -> int:
         total = 0
@@ -140,17 +154,29 @@ class PrediccionService:
                 ))
                 nuevas += 1
         self.db.commit()
+        self._invalidar_cache()
         return nuevas
 
     # ── consultas ─────────────────────────────────────────────────────────────
     def _ultimas(self, modelo_id: int, municipio_id: int) -> list[Prediccion]:
-        filas = list(self.db.scalars(select(Prediccion).where(
-            Prediccion.modelo_id == modelo_id, Prediccion.municipio_id == municipio_id)))
-        if not filas:
-            return []
-        origen = max(desplazar(p.anio, p.semana_epi, -p.horizonte) for p in filas)
-        return sorted((p for p in filas if desplazar(p.anio, p.semana_epi, -p.horizonte) == origen),
-                      key=lambda p: p.horizonte)
+        """Predicciones de la corrida más reciente (horizontes 1-4) de un modelo para un municipio.
+
+        La primera llamada para un modelo carga TODAS sus predicciones en una sola consulta y las
+        agrupa por municipio; las siguientes son una búsqueda en un diccionario (O(1))."""
+        if modelo_id not in self._vigentes:
+            por_municipio: dict[int, list[Prediccion]] = defaultdict(list)
+            for p in self.db.scalars(select(Prediccion).where(Prediccion.modelo_id == modelo_id)):
+                por_municipio[p.municipio_id].append(p)
+            self._vigentes[modelo_id] = {mid: self._corrida_reciente(ps) for mid, ps in por_municipio.items()}
+        return self._vigentes[modelo_id].get(municipio_id, [])
+
+    @staticmethod
+    def _corrida_reciente(predicciones: list[Prediccion]) -> list[Prediccion]:
+        """De varias corridas semanales, solo la última (misma semana de origen), ordenada por horizonte."""
+        def origen(p: Prediccion) -> tuple[int, int]:
+            return desplazar(p.anio, p.semana_epi, -p.horizonte)
+        ultima = max(map(origen, predicciones))
+        return sorted((p for p in predicciones if origen(p) == ultima), key=lambda p: p.horizonte)
 
     def _enfermedad(self, enfermedad_id: int) -> Enfermedad:
         enf = self.enfermedades.obtener(enfermedad_id)
