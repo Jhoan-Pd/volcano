@@ -7,7 +7,7 @@
 """
 import csv
 import io
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 from reportlab.graphics.charts.lineplots import LinePlot
 from reportlab.graphics.shapes import Drawing, Line, String
@@ -48,6 +48,19 @@ def _num(v: float | None, dec: int = 1) -> str:
     return numero_es(v, dec, miles=True)
 
 
+class _Estilos:
+    """Estilos de párrafo del PDF (se crean una vez por reporte)."""
+
+    def __init__(self) -> None:
+        base = getSampleStyleSheet()
+        self.h1 = ParagraphStyle("h1", parent=base["Title"], fontSize=18, leading=22, alignment=0, textColor=TINTA,
+                                 spaceAfter=2)
+        self.h2 = ParagraphStyle("h2", parent=base["Heading2"], fontSize=12.5, textColor=TINTA, spaceBefore=12,
+                                 spaceAfter=6)
+        self.normal = ParagraphStyle("n", parent=base["BodyText"], fontSize=9, leading=12, textColor=TINTA)
+        self.pequeno = ParagraphStyle("p", parent=self.normal, fontSize=7.5, leading=10, textColor=GRIS)
+
+
 class ReporteService:
     def __init__(self, db):
         self.db = db
@@ -73,7 +86,8 @@ class ReporteService:
 
     def predicciones_csv(self, municipio_id: int | None = None) -> bytes:
         pred = PrediccionService(self.db)
-        municipios = list(self.db.scalars(select(Municipio).where(Municipio.activo.is_(True)).order_by(Municipio.nombre)))
+        municipios = list(self.db.scalars(
+            select(Municipio).where(Municipio.activo.is_(True)).order_by(Municipio.nombre)))
         if municipio_id:
             municipios = [m for m in municipios if m.id == municipio_id]
         filas = []
@@ -81,12 +95,11 @@ class ReporteService:
             modelo = pred.modelo_activo(enf.id)
             if modelo is None:
                 continue
-            for m in municipios:
-                for p in pred.ultimas_predicciones(modelo.id, m.id):
-                    filas.append((m.codigo_divipola, m.nombre, enf.codigo, p.anio, p.semana_epi,
-                                  inicio_semana(p.anio, p.semana_epi).isoformat(), p.horizonte, p.casos_esperados,
-                                  p.limite_inferior, p.limite_superior, p.nivel_riesgo, modelo.algoritmo,
-                                  modelo.fecha_entrenamiento.date().isoformat()))
+            filas.extend((m.codigo_divipola, m.nombre, enf.codigo, p.anio, p.semana_epi,
+                          inicio_semana(p.anio, p.semana_epi).isoformat(), p.horizonte, p.casos_esperados,
+                          p.limite_inferior, p.limite_superior, p.nivel_riesgo, modelo.algoritmo,
+                          modelo.fecha_entrenamiento.date().isoformat())
+                         for m in municipios for p in pred.ultimas_predicciones(modelo.id, m.id))
         return _csv(["cod_divipola", "municipio", "enfermedad", "anio", "semana_epi", "fecha_inicio_semana",
                      "horizonte_semanas", "casos_esperados", "limite_inferior_80", "limite_superior_80", "nivel_riesgo",
                      "modelo", "fecha_entrenamiento"], filas)
@@ -110,99 +123,109 @@ class ReporteService:
         pred = PrediccionService(self.db)
         dash = DashboardService(self.db, predicciones=pred)
         resumen = dash.resumen(m.id)
-
-        estilos = getSampleStyleSheet()
-        h1 = ParagraphStyle("h1", parent=estilos["Title"], fontSize=18, leading=22, alignment=0, textColor=TINTA,
-                            spaceAfter=2)
-        h2 = ParagraphStyle("h2", parent=estilos["Heading2"], fontSize=12.5, textColor=TINTA, spaceBefore=12,
-                            spaceAfter=6)
-        normal = ParagraphStyle("n", parent=estilos["BodyText"], fontSize=9, leading=12, textColor=TINTA)
-        pequeno = ParagraphStyle("p", parent=normal, fontSize=7.5, leading=10, textColor=GRIS)
-
+        alertas = [a for a in AlertaService(self.db).activas() if a.municipio_id == m.id]
+        e = _Estilos()
+        # Patrón Builder: cada sección se arma en su propio método y aquí solo se ordenan
+        historia = [
+            *self._seccion_encabezado(m, resumen, e),
+            *self._seccion_semaforo(resumen, e),
+            *self._seccion_graficas(dash, pred, m, resumen, e),
+            KeepTogether(self._seccion_alertas(alertas, e)),
+            *self._seccion_volcan(resumen.volcan, e),
+            KeepTogether(self._seccion_modelos(pred, resumen, e)),
+            Spacer(1, 10),
+            Paragraph("Proyecto académico · Programación Orientada a la Web. Las predicciones son orientativas y no "
+                      "reemplazan la vigilancia oficial del INS ni de la Secretaría de Salud.", e.pequeno),
+        ]
         buf = io.BytesIO()
         doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=1.8 * cm, rightMargin=1.8 * cm, topMargin=1.6 * cm,
                                 bottomMargin=1.6 * cm, title=f"Reporte de riesgo · {m.nombre}",
                                 author="Predictor de Brotes Nariño")
-        ahora = datetime.now(timezone.utc).astimezone()
-        historia = [
-            Paragraph(f"Reporte de riesgo de brotes · {m.nombre}", h1),
+        doc.build(historia, onFirstPage=self._pie, onLaterPages=self._pie)
+        return buf.getvalue()
+
+    @staticmethod
+    def _seccion_encabezado(m: Municipio, resumen, e: "_Estilos") -> list:
+        ahora = datetime.now(UTC).astimezone()
+        partes = [
+            Paragraph(f"Reporte de riesgo de brotes · {m.nombre}", e.h1),
             Paragraph(f"Semana epidemiológica {resumen.semana_referencia.replace('-S', ' · S')} · "
-                      f"{m.poblacion:,} habitantes · generado el {ahora:%d/%m/%Y %H:%M}".replace(",", "."), pequeno),
+                      f"{numero_es(m.poblacion, 0, miles=True)} habitantes · generado el {ahora:%d/%m/%Y %H:%M}",
+                      e.pequeno),
         ]
         if resumen.hay_datos_simulados:
-            historia.append(Paragraph("Incluye datos simulados para demostración (marcados en la base de datos).", pequeno))
+            partes.append(Paragraph("Incluye datos simulados para demostración (marcados en la base de datos).",
+                                    e.pequeno))
+        return partes
 
-        # 1. Semáforo actual y predicho
-        historia.append(Paragraph("Semáforo de riesgo", h2))
+    def _seccion_semaforo(self, resumen, e: "_Estilos") -> list:
         filas = [["Enfermedad", "Casos", "Nivel actual", "Próx. semana (int. 80 %)", "Máx. 4 semanas"]]
-        estilos_tabla = []
+        colores = []
         for i, r in enumerate(resumen.riesgos, start=1):
             p = r.prediccion
-            filas.append([Paragraph(r.nombre, normal), str(r.casos), NivelRiesgo(r.nivel).etiqueta,
-                          f"{_num(p.casos_esperados_h1)} ({_num(p.limite_inferior_h1, 0)}–{_num(p.limite_superior_h1, 0)})"
-                          if p else "Sin modelo",
+            proxima = (f"{_num(p.casos_esperados_h1)} "
+                       f"({_num(p.limite_inferior_h1, 0)}–{_num(p.limite_superior_h1, 0)})") if p else "Sin modelo"
+            filas.append([Paragraph(r.nombre, e.normal), str(r.casos), NivelRiesgo(r.nivel).etiqueta, proxima,
                           NivelRiesgo(p.nivel_max).etiqueta if p else "—"])
-            estilos_tabla.append(("TEXTCOLOR", (2, i), (2, i), colors.HexColor(COLOR_NIVEL[r.nivel])))
+            colores.append(("TEXTCOLOR", (2, i), (2, i), colors.HexColor(COLOR_NIVEL[r.nivel])))
             if p:
-                estilos_tabla.append(("TEXTCOLOR", (4, i), (4, i), colors.HexColor(COLOR_NIVEL[p.nivel_max])))
-        historia.append(self._tabla(filas, [5.6 * cm, 1.5 * cm, 2.4 * cm, 4.4 * cm, 3.0 * cm], estilos_tabla))
-        historia.append(Spacer(1, 4))
-        historia.append(Paragraph("Niveles por canal endémico: Bajo ≤ P50 · Moderado ≤ P75 · Alto ≤ P90 · Muy alto > P90 "
-                                  "de las mismas semanas de los 5 años anteriores.", pequeno))
+                colores.append(("TEXTCOLOR", (4, i), (4, i), colors.HexColor(COLOR_NIVEL[p.nivel_max])))
+        return [
+            Paragraph("Semáforo de riesgo", e.h2),
+            self._tabla(filas, [5.6 * cm, 1.5 * cm, 2.4 * cm, 4.4 * cm, 3.0 * cm], colores),
+            Spacer(1, 4),
+            Paragraph("Niveles por canal endémico: Bajo ≤ P50 · Moderado ≤ P75 · Alto ≤ P90 · Muy alto > P90 "
+                      "de las mismas semanas de los 5 años anteriores.", e.pequeno),
+        ]
 
-        # 2. Gráficas por enfermedad
-        historia.append(Paragraph("Últimas 26 semanas y predicción", h2))
+    def _seccion_graficas(self, dash: DashboardService, pred: PrediccionService, m: Municipio, resumen,
+                          e: "_Estilos") -> list:
         graficas = [self._grafica(dash, pred, m, r.enfermedad_id, r.nombre, r.color) for r in resumen.riesgos]
         pares = [graficas[i:i + 2] + [""] * (2 - len(graficas[i:i + 2])) for i in range(0, len(graficas), 2)]
         t = Table(pares, colWidths=[8.7 * cm, 8.7 * cm])
         t.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 0)]))
-        historia.append(t)
-        historia.append(Paragraph("Línea continua: casos observados · puntos: casos esperados · franja: intervalo del 80 %.",
-                                  pequeno))
+        return [
+            Paragraph("Últimas 26 semanas y predicción", e.h2),
+            t,
+            Paragraph("Línea continua: casos observados · puntos: casos esperados · franja: intervalo del 80 %.",
+                      e.pequeno),
+        ]
 
-        # 3. Alertas
-        alertas = [a for a in AlertaService(self.db).activas() if a.municipio_id == m.id]
-        bloque = [Paragraph("Alertas activas", h2)]
-        if alertas:
-            bloque.append(self._tabla([["Nivel", "Origen", "Detalle"]] + [
-                [NivelRiesgo(a.nivel_riesgo).etiqueta, a.origen.capitalize(), Paragraph(a.mensaje, normal)] for a in alertas],
-                [2.2 * cm, 2.4 * cm, 12.3 * cm]))
-        else:
-            bloque.append(Paragraph("No hay alertas activas para este municipio.", normal))
-        historia.append(KeepTogether(bloque))
+    def _seccion_alertas(self, alertas, e: "_Estilos") -> list:
+        if not alertas:
+            return [Paragraph("Alertas activas", e.h2),
+                    Paragraph("No hay alertas activas para este municipio.", e.normal)]
+        filas = [["Nivel", "Origen", "Detalle"]] + [
+            [NivelRiesgo(a.nivel_riesgo).etiqueta, a.origen.capitalize(), Paragraph(a.mensaje, e.normal)]
+            for a in alertas]
+        return [Paragraph("Alertas activas", e.h2), self._tabla(filas, [2.2 * cm, 2.4 * cm, 12.3 * cm])]
 
-        # 4. Volcán
-        v = resumen.volcan
-        historia.append(Paragraph("Volcán Galeras", h2))
+    @staticmethod
+    def _seccion_volcan(v, e: "_Estilos") -> list:
         texto = f"<b>Nivel de actividad:</b> {v.nivel_actividad.capitalize()}"
         if v.fecha:
             texto += f" (boletín SGC del {v.fecha:%d/%m/%Y})"
         if v.so2_ton_dia:
             texto += f" · SO₂ {_num(v.so2_ton_dia, 0)} t/día"
-        historia.append(Paragraph(texto, normal))
+        partes = [Paragraph("Volcán Galeras", e.h2), Paragraph(texto, e.normal)]
         if v.ceniza_reciente:
             cenizas = "; ".join(f"{c.municipio} ({c.fecha:%d/%m/%Y})" for c in v.ceniza_reciente)
-            historia.append(Paragraph(f"<b>Caída de ceniza en los últimos 12 meses:</b> {cenizas}", normal))
+            partes.append(Paragraph(f"<b>Caída de ceniza en los últimos 12 meses:</b> {cenizas}", e.normal))
+        return partes
 
-        # 5. Modelos
+    def _seccion_modelos(self, pred: PrediccionService, resumen, e: "_Estilos") -> list:
         filas = [["Enfermedad", "Algoritmo", "MAE base", "MAE modelo", "RMSE base", "RMSE modelo", "Entrenado"]]
         for r in resumen.riesgos:
             mod = pred.modelo_activo(r.enfermedad_id)
             if mod:
                 filas.append([r.codigo, mod.algoritmo, _num(mod.mae_base, 2), _num(mod.mae_modelo, 2),
                               _num(mod.rmse_base, 2), _num(mod.rmse_modelo, 2), f"{mod.fecha_entrenamiento:%d/%m/%Y}"])
-        historia.append(KeepTogether([
-            Paragraph("Modelos predictivos", h2),
+        return [
+            Paragraph("Modelos predictivos", e.h2),
             self._tabla(filas, [2.6 * cm, 3.2 * cm, 2.0 * cm, 2.2 * cm, 2.1 * cm, 2.4 * cm, 2.4 * cm]),
             Paragraph("Base = promedio móvil de 4 semanas. MAE/RMSE en casos por semana y municipio, "
-                      "validación con las últimas 52 semanas.", pequeno),
-        ]))
-        historia.append(Spacer(1, 10))
-        historia.append(Paragraph("Proyecto académico · Programación Orientada a la Web. Las predicciones son orientativas "
-                                  "y no reemplazan la vigilancia oficial del INS ni de la Secretaría de Salud.", pequeno))
-
-        doc.build(historia, onFirstPage=self._pie, onLaterPages=self._pie)
-        return buf.getvalue()
+                      "validación con las últimas 52 semanas.", e.pequeno),
+        ]
 
     @staticmethod
     def _tabla(filas, anchos, extra=None) -> Table:
