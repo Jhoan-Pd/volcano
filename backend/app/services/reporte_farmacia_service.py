@@ -16,7 +16,12 @@ from app.core.errors import ConflictoError, NoEncontradoError, PermisoDenegadoEr
 from app.models import Farmacia, ReporteFarmacia, Usuario
 from app.models.enums import CategoriaProducto, RolNombre
 from app.schemas.farmacia import (
-    ItemReporte, ItemReporteOut, MiFarmacia, ReporteSemanalIn, ReporteSemanalOut, SemanaReportable,
+    ItemReporte,
+    ItemReporteOut,
+    MiFarmacia,
+    ReporteSemanalIn,
+    ReporteSemanalOut,
+    SemanaReportable,
 )
 
 VENTANA_EDICION = 8
@@ -39,7 +44,8 @@ class ReporteFarmaciaService:
             return f
         f = self.db.scalar(select(Farmacia).where(Farmacia.usuario_id == self.actor.id))
         if f is None:
-            raise NoEncontradoError("Tu usuario no está asignado a ninguna farmacia. Pide al administrador que te asigne.")
+            raise NoEncontradoError("Tu usuario no está asignado a ninguna farmacia. "
+                                    "Pide al administrador que te asigne.")
         if farmacia_id is not None and farmacia_id != f.id:
             raise PermisoDenegadoError("Solo puedes reportar por tu propia farmacia")
         return f

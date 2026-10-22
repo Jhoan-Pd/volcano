@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session
 from app.core.deps import solo_admin
 from app.db.session import get_db
 from app.schemas.modelo import EstadoEntrenamiento, ModeloOut
-from app.services.entrenamiento import control, reentrenar as tarea_reentrenar
+from app.services.entrenamiento import control
+from app.services.entrenamiento import reentrenar as tarea_reentrenar
 from app.services.prediccion_service import PrediccionService
 
 router = APIRouter(prefix="/modelo", tags=["Modelo predictivo"])

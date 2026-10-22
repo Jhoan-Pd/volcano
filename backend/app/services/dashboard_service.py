@@ -9,15 +9,23 @@ from app.core.errors import NoEncontradoError
 from app.models import CasoOficial, Enfermedad, Municipio
 from app.models.enums import NivelRiesgo
 from app.repositories.repos import (
-    CasoOficialRepository, EnfermedadRepository, EventoVolcanicoRepository, MunicipioRepository,
+    CasoOficialRepository,
+    EnfermedadRepository,
+    EventoVolcanicoRepository,
+    MunicipioRepository,
 )
 from app.schemas.dashboard import (
-    EstadoVolcan, EventoCeniza, PuntoSerie, ResumenDashboard, RiesgoEnfermedad, RiesgoMunicipio,
-    SerieEnfermedad, Umbrales,
+    EstadoVolcan,
+    EventoCeniza,
+    PuntoSerie,
+    ResumenDashboard,
+    RiesgoEnfermedad,
+    RiesgoMunicipio,
+    SerieEnfermedad,
+    Umbrales,
 )
 from app.services import riesgo_service as rs
 from app.services.prediccion_service import PrediccionService
-
 
 Serie = dict[tuple[int, int], int]  # (año, semana) → casos
 

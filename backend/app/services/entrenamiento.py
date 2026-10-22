@@ -11,7 +11,7 @@ Este módulo orquesta predicción + alertas, así `prediccion_service` ya no nec
 """
 import logging
 import threading
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.core.errors import ConflictoError
 from app.db.session import SessionLocal
@@ -37,13 +37,13 @@ class ControlEntrenamiento:
         with self._lock:
             if self._estado.en_curso:
                 raise ConflictoError("Ya hay un entrenamiento en curso. Espera a que termine.")
-            self._estado = EstadoEntrenamiento(en_curso=True, inicio=datetime.now(timezone.utc), mensaje="Entrenando…")
+            self._estado = EstadoEntrenamiento(en_curso=True, inicio=datetime.now(UTC), mensaje="Entrenando…")
             return self._estado.model_copy()
 
     def terminar(self, mensaje: str, errores: list[str] | None = None) -> None:
         with self._lock:
             self._estado = EstadoEntrenamiento(en_curso=False, inicio=self._estado.inicio,
-                                               fin=datetime.now(timezone.utc), mensaje=mensaje, errores=errores or [])
+                                               fin=datetime.now(UTC), mensaje=mensaje, errores=errores or [])
 
     def reiniciar(self) -> None:
         """Vuelve al estado inicial (útil en pruebas)."""
@@ -63,7 +63,7 @@ def reentrenar(enfermedad_id: int | None = None) -> None:
             alertas = AlertaService(db).evaluar()
         control.terminar(f"{len(modelos)} modelo(s) entrenado(s) y predicciones actualizadas; "
                          f"{alertas.activas} alerta(s) activa(s), {alertas.nuevas} nueva(s)", errores)
-    except Exception as exc:  # noqa: BLE001 - se informa al panel en lugar de perderse en el log
+    except Exception as exc:
         logger.exception("Falló el reentrenamiento")
         control.terminar("El entrenamiento falló", [str(exc)])
 

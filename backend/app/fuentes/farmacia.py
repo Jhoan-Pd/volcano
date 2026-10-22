@@ -38,7 +38,8 @@ class FarmaciaFuente(FuenteDatos):
         if categorias:
             stmt = stmt.where(ReporteFarmacia.categoria.in_(categorias))
         filas = self.db.execute(stmt).all()
-        return pd.DataFrame(filas, columns=["municipio_id", "farmacia_id", "anio", "semana_epi", "categoria", "unidades"])
+        columnas = ["municipio_id", "farmacia_id", "anio", "semana_epi", "categoria", "unidades"]
+        return pd.DataFrame(filas, columns=columnas)
 
     @staticmethod
     def calcular_indice(df: pd.DataFrame) -> pd.DataFrame:

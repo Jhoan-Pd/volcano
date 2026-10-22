@@ -7,7 +7,7 @@ historial pero se les borra el binario (la BD gratuita tiene 0,5 GB).
 """
 import logging
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import numpy as np
 import pandas as pd
@@ -24,8 +24,14 @@ from app.models.enums import NivelRiesgo
 from app.repositories.repos import EnfermedadRepository
 from app.schemas.dashboard import Umbrales
 from app.schemas.modelo import (
-    ExplicacionPrediccion, FactorExplicacion, ModeloOut, ModeloResumen, PrediccionEnfermedad,
-    PuntoBacktest, PuntoPrediccion, ResumenPrediccion,
+    ExplicacionPrediccion,
+    FactorExplicacion,
+    ModeloOut,
+    ModeloResumen,
+    PrediccionEnfermedad,
+    PuntoBacktest,
+    PuntoPrediccion,
+    ResumenPrediccion,
 )
 from app.services import riesgo_service as rs
 
@@ -78,7 +84,7 @@ class PrediccionService:
     def entrenar_enfermedad(self, enf: Enfermedad) -> ModeloEntrenado:
         df = ConstructorDataset(self.db).construir(enf)
         r = self.entrenador.entrenar(df)
-        ahora = datetime.now(timezone.utc)
+        ahora = datetime.now(UTC)
         # Solo el modelo vigente conserva el binario
         self.db.execute(update(ModeloEntrenado).where(ModeloEntrenado.enfermedad_id == enf.id)
                         .values(activo=False, artefacto=None))
@@ -197,8 +203,8 @@ class PrediccionService:
                 fecha_inicio=inicio_semana(p.anio, p.semana_epi), horizonte=p.horizonte,
                 casos_esperados=p.casos_esperados, limite_inferior=p.limite_inferior,
                 limite_superior=p.limite_superior, nivel=p.nivel_riesgo, umbrales=Umbrales(**u) if u else None))
-        backtest = [PuntoBacktest(anio=b["anio"], semana_epi=b["semana_epi"], etiqueta=etiqueta(b["anio"], b["semana_epi"]),
-                                  real=b["real"], predicho=b["predicho"])
+        backtest = [PuntoBacktest(anio=b["anio"], semana_epi=b["semana_epi"],
+                                  etiqueta=etiqueta(b["anio"], b["semana_epi"]), real=b["real"], predicho=b["predicho"])
                     for b in (m.parametros or {}).get("backtest", []) if b["municipio_id"] == municipio_id]
         base = desplazar(preds[0].anio, preds[0].semana_epi, -1) if preds else None
         return PrediccionEnfermedad(
@@ -207,7 +213,8 @@ class PrediccionService:
             modelo=ModeloResumen(id=m.id, algoritmo=m.algoritmo, fecha_entrenamiento=m.fecha_entrenamiento,
                                  mae_base=m.mae_base, mae_modelo=m.mae_modelo, rmse_base=m.rmse_base,
                                  rmse_modelo=m.rmse_modelo),
-            nivel_max=NivelRiesgo.peor(p.nivel for p in puntos).value if puntos else None, puntos=puntos, backtest=backtest)
+            nivel_max=NivelRiesgo.peor(p.nivel for p in puntos).value if puntos else None,
+            puntos=puntos, backtest=backtest)
 
     def resumen(self, municipio_id: int, enfermedad_id: int) -> ResumenPrediccion | None:
         m = self.modelo_activo(enfermedad_id)
@@ -240,11 +247,13 @@ class PrediccionService:
         # Solo se mencionan los factores que mueven la predicción de forma apreciable
         umbral = max(0.1, 0.05 * p.casos_esperados)
         suben = [f for f in factores if f.direccion == "sube" and f.contribucion >= umbral]
+        semana, esperados = etiqueta(p.anio, p.semana_epi), numero_es(p.casos_esperados)
         if suben:
-            resumen = (f"Para la semana {etiqueta(p.anio, p.semana_epi)} se esperan {numero_es(p.casos_esperados)} casos. "
-                       f"Lo que más empuja la predicción hacia arriba: {', '.join(f.grupo.lower() for f in suben[:3])}.")
+            grupos = ", ".join(f.grupo.lower() for f in suben[:3])
+            resumen = (f"Para la semana {semana} se esperan {esperados} casos. "
+                       f"Lo que más empuja la predicción hacia arriba: {grupos}.")
         else:
-            resumen = (f"Para la semana {etiqueta(p.anio, p.semana_epi)} se esperan {numero_es(p.casos_esperados)} casos; "
+            resumen = (f"Para la semana {semana} se esperan {esperados} casos; "
                        "ninguna señal está por encima de su valor típico.")
         return ExplicacionPrediccion(
             municipio_id=muni.id, municipio=muni.nombre, enfermedad_id=enf.id, enfermedad=enf.nombre,

@@ -4,4 +4,7 @@ from app.fuentes.open_meteo import OpenMeteoFuente
 from app.fuentes.sivigila import SivigilaFuente
 from app.fuentes.trends import CsvTrendsFuente, TrendsFuente
 
-__all__ = ["FuenteDatos", "FuenteDatosError", "OpenMeteoFuente", "TrendsFuente", "CsvTrendsFuente", "SivigilaFuente", "FarmaciaFuente"]
+__all__ = [
+    "CsvTrendsFuente", "FarmaciaFuente", "FuenteDatos", "FuenteDatosError", "OpenMeteoFuente", "SivigilaFuente",
+    "TrendsFuente",
+]

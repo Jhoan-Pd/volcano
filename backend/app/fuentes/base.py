@@ -36,7 +36,7 @@ class FuenteDatos(ABC):
         try:
             self.verificar()
             return True
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("Fuente %s no disponible: %s", self.nombre, exc)
             return False
 

@@ -19,7 +19,8 @@ def pronostico(municipio_id: int, dias: int = Query(16, ge=1, le=16), db: Sessio
     return ClimaService(db).pronostico(municipio_id, dias)
 
 
-@router.get("/{municipio_id}/semanal", response_model=list[ClimaSemanal], summary="Clima observado por semana epidemiológica")
+@router.get("/{municipio_id}/semanal", response_model=list[ClimaSemanal],
+            summary="Clima observado por semana epidemiológica")
 def semanal(municipio_id: int, semanas: int = Query(52, ge=1, le=520), db: Session = Depends(get_db)):
     return ClimaService(db).semanal(municipio_id, semanas)
 

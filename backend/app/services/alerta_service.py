@@ -12,7 +12,7 @@ ALERTAS_EMAIL_DESTINO y a los ciudadanos registrados en el municipio afectado.
 """
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import func, select
 
@@ -29,6 +29,10 @@ from app.services.dashboard_service import DashboardService
 from app.services.prediccion_service import PrediccionService
 
 logger = logging.getLogger("predictor.alertas")
+
+def _percentil_superado(enf, nivel: str) -> int:
+    return enf.umbral_rojo_pct if nivel == NivelRiesgo.ROJO else enf.umbral_naranja_pct
+
 
 def texto_nivel(nivel: str) -> str:
     """«Riesgo alto», «Riesgo muy alto»…"""
@@ -80,7 +84,7 @@ class AlertaService:
                     salida.append(_Candidata(
                         m.id, enf.id, anio, semana, r.nivel, OrigenAlerta.OBSERVADO,
                         f"{enf.nombre} en {m.nombre}: {r.casos} casos en la semana {etiqueta(anio, semana)}, "
-                        f"por encima del percentil {enf.umbral_naranja_pct if r.nivel == 'NARANJA' else enf.umbral_rojo_pct} "
+                        f"por encima del percentil {_percentil_superado(enf, r.nivel)} "
                         f"de los últimos 5 años ({texto_nivel(r.nivel).lower()})."))
                 if modelo is None:
                     continue
@@ -97,7 +101,7 @@ class AlertaService:
 
     def evaluar(self, enviar_correo: bool = True) -> ResultadoEvaluacion:
         candidatas = self._candidatas()
-        ahora = datetime.now(timezone.utc)
+        ahora = datetime.now(UTC)
         desde = min((c.anio for c in candidatas), default=ahora.year) - 1
         # Todas las alertas recientes (activas o cerradas) por clave; gana la más reciente
         existentes: dict[tuple, Alerta] = {}
@@ -157,8 +161,7 @@ class AlertaService:
             ciudadanos = self.db.scalars(select(Usuario).join(Rol).where(
                 Rol.nombre == RolNombre.CIUDADANO.value, Usuario.activo.is_(True),
                 Usuario.municipio_id.in_(list(por_municipio))))
-            for u in ciudadanos:
-                envios.append(([u.email], por_municipio[u.municipio_id]))
+            envios.extend(([u.email], por_municipio[u.municipio_id]) for u in ciudadanos)
         return envios
 
     def notificar(self) -> int:
@@ -183,9 +186,10 @@ class AlertaService:
     # ── consultas ────────────────────────────────────────────────────────────
     def activas(self) -> list[AlertaOut]:
         alertas = self.db.scalars(select(Alerta).where(Alerta.activa.is_(True)))
-        orden = {"ROJO": 0, "NARANJA": 1}
-        return [alerta_out(a) for a in sorted(alertas, key=lambda a: (orden.get(a.nivel_riesgo, 2),
-                                                                         a.origen != OrigenAlerta.OBSERVADO, a.municipio_id))]
+        # Primero las más graves; a igual nivel, lo ya observado antes que lo predicho
+        def prioridad(a: Alerta) -> tuple[int, bool, int]:
+            return (-NivelRiesgo(a.nivel_riesgo).rango, a.origen != OrigenAlerta.OBSERVADO, a.municipio_id)
+        return [alerta_out(a) for a in sorted(alertas, key=prioridad)]
 
     def listar(self, activa: bool | None, offset: int, limit: int) -> Pagina[AlertaOut]:
         stmt = select(Alerta)
@@ -201,6 +205,6 @@ class AlertaService:
         if a is None:
             raise NoEncontradoError(f"Alerta {alerta_id} no existe")
         if a.activa:
-            a.activa, a.cerrada_en = False, datetime.now(timezone.utc)
+            a.activa, a.cerrada_en = False, datetime.now(UTC)
             self.db.commit()
         return alerta_out(a)

@@ -13,8 +13,9 @@ las demás (una caída de Google Trends no debe impedir actualizar el clima ni l
 """
 import logging
 import time
-from datetime import date, datetime, timezone
-from typing import Callable, Literal
+from collections.abc import Callable
+from datetime import UTC, date, datetime
+from typing import Literal
 
 from sqlalchemy import func, select
 
@@ -38,7 +39,7 @@ def _paso(nombre: str, fn: Callable[[], object]) -> dict:
         if hasattr(resultado, "model_dump"):
             resultado = resultado.model_dump()
         return {"paso": nombre, "ok": True, "segundos": round(time.perf_counter() - t0, 1), "resultado": resultado}
-    except Exception as exc:  # noqa: BLE001 - un paso fallido no detiene la actualización
+    except Exception as exc:
         logger.exception("Paso %s falló", nombre)
         return {"paso": nombre, "ok": False, "segundos": round(time.perf_counter() - t0, 1), "error": str(exc)}
 
@@ -52,7 +53,7 @@ class ActualizacionService:
         return modo == "si" or (modo == "auto" and self.hoy.weekday() == 0)  # lunes
 
     def ejecutar(self, sivigila: Modo = "auto", reentrenar: Modo = "auto") -> dict:
-        inicio = datetime.now(timezone.utc)
+        inicio = datetime.now(UTC)
         pasos = [
             _paso("clima", lambda: ClimaService(self.db).sincronizar(dias_pasados=14)),
             _paso("tendencias", lambda: TendenciaService(self.db).sincronizar()),
@@ -79,7 +80,7 @@ class ActualizacionService:
 
         return {
             "inicio": inicio.isoformat(),
-            "fin": datetime.now(timezone.utc).isoformat(),
+            "fin": datetime.now(UTC).isoformat(),
             "ok": all(p["ok"] for p in pasos),
             "pasos": pasos,
         }

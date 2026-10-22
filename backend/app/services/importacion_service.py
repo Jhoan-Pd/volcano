@@ -21,12 +21,22 @@ from sqlalchemy import func, select
 from app.core.epi import etiqueta, semana_de, semanas_del_anio
 from app.core.errors import ReglaNegocioError
 from app.models import (
-    CasoOficial, EventoVolcanico, ModeloEntrenado, Prediccion, RegistroClima, ReporteFarmacia, TendenciaBusqueda,
+    CasoOficial,
+    EventoVolcanico,
+    ModeloEntrenado,
+    Prediccion,
+    RegistroClima,
+    ReporteFarmacia,
+    TendenciaBusqueda,
 )
 from app.models.enums import NivelVolcanico, TipoEventoVolcanico
 from app.repositories.repos import (
-    CasoOficialRepository, EnfermedadRepository, EventoVolcanicoRepository, MunicipioRepository,
-    RegistroClimaRepository, TendenciaRepository,
+    CasoOficialRepository,
+    EnfermedadRepository,
+    EventoVolcanicoRepository,
+    MunicipioRepository,
+    RegistroClimaRepository,
+    TendenciaRepository,
 )
 from app.schemas.datos import ErrorFila, EstadoDatos, EstadoFuente, ResultadoImportacion
 
@@ -34,17 +44,21 @@ TAMANO_MAXIMO = 5 * 1024 * 1024  # 5 MB
 MAX_ERRORES = 50
 
 
-class FilaInvalida(ValueError):
+class FilaInvalidaError(ValueError):
     pass
+
+
+def _iso(momento) -> str | None:
+    return momento.isoformat() if momento else None
 
 
 def _entero(valor: str, campo: str, minimo: int | None = None, maximo: int | None = None) -> int:
     try:
         n = int(float(valor.strip()))
     except (ValueError, AttributeError):
-        raise FilaInvalida(f"«{campo}» debe ser un número entero (llegó «{valor}»)") from None
+        raise FilaInvalidaError(f"«{campo}» debe ser un número entero (llegó «{valor}»)") from None
     if (minimo is not None and n < minimo) or (maximo is not None and n > maximo):
-        raise FilaInvalida(f"«{campo}» fuera de rango ({n})")
+        raise FilaInvalidaError(f"«{campo}» fuera de rango ({n})")
     return n
 
 
@@ -54,14 +68,14 @@ def _decimal(valor: str | None, campo: str) -> float | None:
     try:
         return float(valor.strip().replace(",", "."))
     except ValueError:
-        raise FilaInvalida(f"«{campo}» debe ser numérico (llegó «{valor}»)") from None
+        raise FilaInvalidaError(f"«{campo}» debe ser numérico (llegó «{valor}»)") from None
 
 
 def _fecha(valor: str, campo: str) -> date:
     try:
         return date.fromisoformat(valor.strip())
     except (ValueError, AttributeError):
-        raise FilaInvalida(f"«{campo}» debe tener formato AAAA-MM-DD (llegó «{valor}»)") from None
+        raise FilaInvalidaError(f"«{campo}» debe tener formato AAAA-MM-DD (llegó «{valor}»)") from None
 
 
 class Importador(ABC):
@@ -75,7 +89,7 @@ class Importador(ABC):
     def municipio(self, cod: str) -> int:
         mid = self.municipios.get((cod or "").strip().zfill(5))
         if mid is None:
-            raise FilaInvalida(f"Municipio con DIVIPOLA «{cod}» no está registrado")
+            raise FilaInvalidaError(f"Municipio con DIVIPOLA «{cod}» no está registrado")
         return mid
 
     @abstractmethod
@@ -96,7 +110,7 @@ class ImportadorCasos(Importador):
     def convertir(self, f):
         eid = self.enfermedades.get(f["enfermedad"].strip().upper())
         if eid is None:
-            raise FilaInvalida(f"Enfermedad «{f['enfermedad']}» no existe (usa el código, p. ej. IRA)")
+            raise FilaInvalidaError(f"Enfermedad «{f['enfermedad']}» no existe (usa el código, p. ej. IRA)")
         anio = _entero(f["anio"], "anio", 2000, 2100)
         return {"municipio_id": self.municipio(f["cod_divipola"]), "enfermedad_id": eid, "anio": anio,
                 "semana_epi": _entero(f["semana_epi"], "semana_epi", 1, semanas_del_anio(anio)),
@@ -118,9 +132,9 @@ class ImportadorClima(Importador):
             fila[c] = _decimal(f.get(c), c)
         h = fila["humedad_relativa_pct"]
         if h is not None and not 0 <= h <= 100:
-            raise FilaInvalida("La humedad debe estar entre 0 y 100")
+            raise FilaInvalidaError("La humedad debe estar entre 0 y 100")
         if fila["precipitacion_mm"] is not None and fila["precipitacion_mm"] < 0:
-            raise FilaInvalida("La precipitación no puede ser negativa")
+            raise FilaInvalidaError("La precipitación no puede ser negativa")
         return fila
 
     def guardar(self, filas):
@@ -138,13 +152,13 @@ class ImportadorEventos(Importador):
         tipo = f["tipo"].strip().upper()
         nivel = f["nivel_actividad"].strip().upper()
         if tipo not in {t.value for t in TipoEventoVolcanico}:
-            raise FilaInvalida(f"Tipo «{f['tipo']}» no válido")
+            raise FilaInvalidaError(f"Tipo «{f['tipo']}» no válido")
         if nivel not in {n.value for n in NivelVolcanico}:
-            raise FilaInvalida(f"Nivel «{f['nivel_actividad']}» no válido (VERDE, AMARILLO, NARANJA o ROJO)")
+            raise FilaInvalidaError(f"Nivel «{f['nivel_actividad']}» no válido (VERDE, AMARILLO, NARANJA o ROJO)")
         cod = (f.get("cod_divipola") or "").strip()
         intensidad = _entero(f.get("intensidad_ceniza") or "0", "intensidad_ceniza", 0, 3)
         if tipo == TipoEventoVolcanico.CAIDA_CENIZA and (not cod or intensidad == 0):
-            raise FilaInvalida("Una caída de ceniza necesita municipio e intensidad entre 1 y 3")
+            raise FilaInvalidaError("Una caída de ceniza necesita municipio e intensidad entre 1 y 3")
         return {"tipo": tipo, "nivel_actividad": nivel, "fecha_inicio": _fecha(f["fecha_inicio"], "fecha_inicio"),
                 "municipio_id": self.municipio(cod) if cod else None, "intensidad_ceniza": intensidad,
                 "so2_ton_dia": _decimal(f.get("so2_ton_dia"), "so2_ton_dia"),
@@ -166,10 +180,10 @@ class ImportadorTendencias(Importador):
         anio, semana = semana_de(fecha)
         indice = _decimal(f["indice"], "indice")
         if indice is None or not 0 <= indice <= 100:
-            raise FilaInvalida("El índice de Google Trends va de 0 a 100")
+            raise FilaInvalidaError("El índice de Google Trends va de 0 a 100")
         termino = f["termino"].strip().lower()
         if len(termino) < 2:
-            raise FilaInvalida("Término vacío")
+            raise FilaInvalidaError("Término vacío")
         return {"termino": termino, "region": "CO-NAR", "anio": anio, "semana_epi": semana, "fecha_semana": fecha,
                 "indice": indice, "fuente": "csv", "es_simulado": False}
 
@@ -217,7 +231,7 @@ class ImportacionService:
             leidas += 1
             try:
                 validas.append(imp.convertir({k: (v or "") for k, v in fila.items() if k}))
-            except FilaInvalida as exc:
+            except FilaInvalidaError as exc:
                 if len(errores) < MAX_ERRORES:
                     errores.append(ErrorFila(fila=n, mensaje=str(exc)))
         insertadas, actualizadas = imp.guardar(validas) if validas else (0, 0)
@@ -241,9 +255,11 @@ class ImportacionService:
             v = self.db.scalar(select(func.max(modelo.actualizado_en)))
             return v.isoformat() if v else None
 
-        ultima_fecha = self.db.scalar(select(func.max(RegistroClima.fecha)).where(RegistroClima.es_pronostico.is_(False)))
+        ultima_fecha = self.db.scalar(
+            select(func.max(RegistroClima.fecha)).where(RegistroClima.es_pronostico.is_(False)))
         fuentes = [
-            EstadoFuente(fuente="Casos oficiales (SIVIGILA / CSV)", tabla="casos_oficiales", registros=contar(CasoOficial),
+            EstadoFuente(fuente="Casos oficiales (SIVIGILA / CSV)", tabla="casos_oficiales",
+                         registros=contar(CasoOficial),
                          simulados=contar(CasoOficial, True), ultima_semana=ultima(CasoOficial),
                          ultima_actualizacion=actualizado(CasoOficial)),
             EstadoFuente(fuente="Clima (Open-Meteo)", tabla="registros_clima", registros=contar(RegistroClima),
@@ -261,7 +277,6 @@ class ImportacionService:
                          ultima_semana=None, ultima_actualizacion=actualizado(EventoVolcanico)),
             EstadoFuente(fuente="Predicciones del modelo", tabla="predicciones", registros=contar(Prediccion),
                          simulados=0, ultima_semana=ultima(Prediccion),
-                         ultima_actualizacion=(lambda v: v.isoformat() if v else None)(
-                             self.db.scalar(select(func.max(ModeloEntrenado.fecha_entrenamiento))))),
+                         ultima_actualizacion=_iso(self.db.scalar(select(func.max(ModeloEntrenado.fecha_entrenamiento))))),
         ]
         return EstadoDatos(fuentes=fuentes)

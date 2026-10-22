@@ -3,7 +3,7 @@
 Decisión: se usa la librería `bcrypt` directamente (passlib está sin mantenimiento
 y choca con bcrypt>=4.1) y `PyJWT` (python-jose tiene CVEs y poco mantenimiento).
 """
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import bcrypt
@@ -25,7 +25,7 @@ def verify_password(password: str, password_hash: str) -> bool:
 
 
 def crear_token(sub: str | int, rol: str, extra: dict[str, Any] | None = None) -> str:
-    ahora = datetime.now(timezone.utc)
+    ahora = datetime.now(UTC)
     payload: dict[str, Any] = {
         "sub": str(sub),
         "rol": rol,

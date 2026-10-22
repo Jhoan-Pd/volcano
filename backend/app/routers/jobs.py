@@ -11,7 +11,8 @@ from app.services.actualizacion_service import ActualizacionService
 router = APIRouter(prefix="/jobs", tags=["Tareas programadas"], dependencies=[Depends(verificar_cron)])
 
 
-@router.post("/actualizar-datos", summary="Actualización diaria de fuentes, predicciones y alertas (cabecera X-Cron-Secret)")
+@router.post("/actualizar-datos",
+             summary="Actualización diaria de fuentes, predicciones y alertas (cabecera X-Cron-Secret)")
 def actualizar_datos(
     sivigila: Literal["auto", "si", "no"] = Query("auto", description="auto = solo los lunes"),
     reentrenar: Literal["auto", "si", "no"] = Query("auto", description="auto = los lunes o si no hay modelos"),

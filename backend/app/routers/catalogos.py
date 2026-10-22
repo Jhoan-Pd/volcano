@@ -1,12 +1,24 @@
 """Routers CRUD de catálogos (generados con la fábrica)."""
 from app.routers.crud import crear_router_crud
 from app.schemas.catalogos import (
-    EnfermedadCreate, EnfermedadOut, EnfermedadUpdate, EventoVolcanicoCreate, EventoVolcanicoOut,
-    EventoVolcanicoUpdate, FarmaciaCreate, FarmaciaOut, FarmaciaUpdate, MunicipioCreate, MunicipioOut,
+    EnfermedadCreate,
+    EnfermedadOut,
+    EnfermedadUpdate,
+    EventoVolcanicoCreate,
+    EventoVolcanicoOut,
+    EventoVolcanicoUpdate,
+    FarmaciaCreate,
+    FarmaciaOut,
+    FarmaciaUpdate,
+    MunicipioCreate,
+    MunicipioOut,
     MunicipioUpdate,
 )
 from app.services.catalogo_services import (
-    EnfermedadService, EventoVolcanicoService, FarmaciaService, MunicipioService,
+    EnfermedadService,
+    EventoVolcanicoService,
+    FarmaciaService,
+    MunicipioService,
 )
 
 municipios = crear_router_crud(

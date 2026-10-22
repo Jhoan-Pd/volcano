@@ -22,16 +22,31 @@ from app.core.security import hash_password
 from app.db.session import SessionLocal
 from app.fuentes import FuenteDatosError, OpenMeteoFuente
 from app.models import (
-    Alerta, CasoOficial, Enfermedad, EventoVolcanico, Farmacia, ModeloEntrenado, Municipio, Prediccion,
-    RegistroClima, ReporteFarmacia, Rol, TendenciaBusqueda, Usuario,
+    Alerta,
+    CasoOficial,
+    Enfermedad,
+    EventoVolcanico,
+    Farmacia,
+    ModeloEntrenado,
+    Municipio,
+    Prediccion,
+    RegistroClima,
+    ReporteFarmacia,
+    Rol,
+    TendenciaBusqueda,
+    Usuario,
 )
-from app.models.enums import RolNombre
+from app.models.enums import NivelVolcanico, RolNombre, TipoEventoVolcanico
 from app.seed import catalogo
+from app.seed.generador import (
+    clima_semanal,
+    generar_casos,
+    generar_reportes_farmacia,
+    generar_tendencias,
+    simular_clima,
+)
 from app.services.alerta_service import AlertaService
 from app.services.prediccion_service import PrediccionService
-from app.seed.generador import (
-    clima_semanal, generar_casos, generar_reportes_farmacia, generar_tendencias, simular_clima,
-)
 
 log = logging.getLogger("seed")
 DATA = Path(__file__).parent / "data"
@@ -130,7 +145,8 @@ def seed_clima(db, usar_red: bool, devolver: bool = True) -> dict[int, list[dict
                 log.warning("Open-Meteo no disponible para %s (%s): se usa clima simulado", m.nombre, exc)
                 filas = []
         if not filas:
-            filas = simular_clima({"altitud_m": m.altitud_m}, desde, hoy + timedelta(days=15), hoy, SEMILLA + int(m.codigo_divipola))
+            filas = simular_clima({"altitud_m": m.altitud_m}, desde, hoy + timedelta(days=15), hoy,
+                                  SEMILLA + int(m.codigo_divipola))
         db.execute(insert(RegistroClima), [{**f, "municipio_id": m.id} for f in filas])
         db.commit()
         salida[m.id] = filas
@@ -168,22 +184,24 @@ def seed_volcan(db) -> tuple[dict[tuple[int, int], float], dict[int, dict[tuple[
         if ini >= real_ini - timedelta(days=3):
             break
         # El Galeras ha permanecido en Alerta Amarilla del SGC en este periodo; el SO2 es estimado
-        filas.append({"tipo": "BOLETIN", "nivel_actividad": "AMARILLO", "fecha_inicio": ini,
+        filas.append({"tipo": TipoEventoVolcanico.BOLETIN, "nivel_actividad": NivelVolcanico.AMARILLO,
+                      "fecha_inicio": ini,
                       "fecha_fin": ini + timedelta(days=6), "so2_ton_dia": v, "intensidad_ceniza": 0,
                       "descripcion": "Boletín semanal (SO₂ estimado, dato simulado para la semilla)",
                       "es_simulado": True})
-    filas.append({"tipo": "BOLETIN", "nivel_actividad": catalogo.BOLETIN_REAL["nivel_actividad"],
+    filas.append({"tipo": TipoEventoVolcanico.BOLETIN, "nivel_actividad": catalogo.BOLETIN_REAL["nivel_actividad"],
                   "fecha_inicio": real_ini, "fecha_fin": date.fromisoformat(catalogo.BOLETIN_REAL["fecha_fin"]),
-                  "descripcion": catalogo.BOLETIN_REAL["descripcion"], "url_boletin": catalogo.BOLETIN_REAL["url_boletin"],
+                  "descripcion": catalogo.BOLETIN_REAL["descripcion"],
+                  "url_boletin": catalogo.BOLETIN_REAL["url_boletin"],
                   "intensidad_ceniza": 0, "es_simulado": False})
     etiquetas = {1: "leve", 2: "moderada", 3: "fuerte"}
-    for f, nombres, intensidad in catalogo.CENIZA_SIMULADA:
-        for n in nombres:
-            filas.append({"tipo": "CAIDA_CENIZA", "nivel_actividad": "AMARILLO", "fecha_inicio": date.fromisoformat(f),
-                          "fecha_fin": date.fromisoformat(f) + timedelta(days=1), "municipio_id": muni[n],
-                          "intensidad_ceniza": intensidad,
-                          "descripcion": f"Caída de ceniza {etiquetas[intensidad]} (evento simulado para la semilla)",
-                          "es_simulado": True})
+    filas.extend(
+        {"tipo": TipoEventoVolcanico.CAIDA_CENIZA, "nivel_actividad": NivelVolcanico.AMARILLO,
+         "fecha_inicio": date.fromisoformat(f), "fecha_fin": date.fromisoformat(f) + timedelta(days=1),
+         "municipio_id": muni[n], "intensidad_ceniza": intensidad,
+         "descripcion": f"Caída de ceniza {etiquetas[intensidad]} (evento simulado para la semilla)",
+         "es_simulado": True}
+        for f, nombres, intensidad in catalogo.CENIZA_SIMULADA for n in nombres)
     db.execute(insert(EventoVolcanico), filas)
     db.commit()
     return so2, ceniza
@@ -199,7 +217,8 @@ def seed_casos(db, clima: dict[int, list[dict]], so2, ceniza) -> None:
         base = catalogo.BASE_SEMANAL.get(m.nombre) or {k: 1.0 for k in enf}
         series = generar_casos(
             municipio=m.nombre, poblacion=m.poblacion, base=base, clima=clima_semanal(clima[m.id]), so2=so2,
-            ceniza=ceniza.get(m.id, {}), desde=(settings.SEED_ANIO_INICIO, 1), hasta=fin, semilla=SEMILLA + int(m.codigo_divipola),
+            ceniza=ceniza.get(m.id, {}), desde=(settings.SEED_ANIO_INICIO, 1), hasta=fin,
+            semilla=SEMILLA + int(m.codigo_divipola),
         )
         filas = [{"municipio_id": m.id, "enfermedad_id": enf[cod], "anio": a, "semana_epi": s, "casos": c,
                   "fuente": "SIVIGILA (simulado)", "es_simulado": True}

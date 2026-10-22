@@ -2,8 +2,16 @@
 from datetime import date
 
 from sqlalchemy import and_, or_, select
+
 from app.models import (
-    CasoOficial, Enfermedad, EventoVolcanico, Farmacia, Municipio, RegistroClima, Rol, TendenciaBusqueda,
+    CasoOficial,
+    Enfermedad,
+    EventoVolcanico,
+    Farmacia,
+    Municipio,
+    RegistroClima,
+    Rol,
+    TendenciaBusqueda,
     Usuario,
 )
 from app.models.enums import TipoEventoVolcanico
