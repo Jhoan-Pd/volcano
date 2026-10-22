@@ -1,10 +1,7 @@
 import { Activity, CloudSun, Info, Map as IconoMapa, MapPin } from "lucide-react";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
-import { mensajeError } from "../api/cliente";
 import { catalogoApi, climaApi, dashboardApi } from "../api/servicios";
-import type {
-  ClimaActual, ClimaDiario, Municipio, PrediccionEnfermedad, ResumenDashboard, RiesgoMunicipio, SerieEnfermedad,
-} from "../api/tipos";
+import type { PrediccionEnfermedad } from "../api/tipos";
 import CanalEndemicoChart from "../components/dashboard/CanalEndemicoChart";
 import type { ModoMapa } from "../components/dashboard/MapaRiesgo";
 import MenuReportes from "../components/dashboard/MenuReportes";
@@ -14,72 +11,64 @@ import TituloRevelado from "../components/TituloRevelado";
 import { ClimaActualCard, Recomendaciones, RiesgoMunicipiosTabla, VolcanCard } from "../components/dashboard/Paneles";
 import PronosticoClima from "../components/dashboard/PronosticoClima";
 import SemaforoCard from "../components/dashboard/SemaforoCard";
-import { Aviso, Card, CardHeader, claseInput, SimuladoBadge, Spinner } from "../components/ui";
+import { Aviso, Card, CardHeader, claseInput, Segmentado, SimuladoBadge, Spinner } from "../components/ui";
 import { fmtFecha, fmtNum } from "../lib/formato";
+import { useDatos } from "../lib/useDatos";
 
 // Leaflet pesa ~150 kB: el mapa se descarga aparte, después del resto del dashboard
 const MapaRiesgo = lazy(() => import("../components/dashboard/MapaRiesgo"));
 
 const RANGOS = [
-  { semanas: 26, etiqueta: "6 meses" },
-  { semanas: 52, etiqueta: "1 año" },
-  { semanas: 104, etiqueta: "2 años" },
-  { semanas: 260, etiqueta: "5 años" },
-];
+  { valor: 26, etiqueta: "6 meses" },
+  { valor: 52, etiqueta: "1 año" },
+  { valor: 104, etiqueta: "2 años" },
+  { valor: 260, etiqueta: "5 años" },
+] as const;
+
+const MODOS_MAPA = [
+  { valor: "actual", etiqueta: "Semana actual" },
+  { valor: "predicho", etiqueta: "Próximas 4 semanas" },
+] as const satisfies readonly { valor: ModoMapa; etiqueta: string }[];
 
 export default function DashboardPage() {
-  const [municipios, setMunicipios] = useState<Municipio[]>([]);
   const [municipioId, setMunicipioId] = useState<number | null>(null);
-  const [resumen, setResumen] = useState<ResumenDashboard | null>(null);
   const [enfermedadId, setEnfermedadId] = useState<number | null>(null);
-  const [semanas, setSemanas] = useState(52);
-  const [serie, setSerie] = useState<SerieEnfermedad | null>(null);
-  const [prediccion, setPrediccion] = useState<PrediccionEnfermedad | null>(null);
+  const [semanas, setSemanas] = useState<number>(52);
   const [verValidacion, setVerValidacion] = useState(false);
   const [modoMapa, setModoMapa] = useState<ModoMapa>("actual");
   const [codigoMapa, setCodigoMapa] = useState("");
-  const [climaActual, setClimaActual] = useState<ClimaActual | null>(null);
-  const [pronostico, setPronostico] = useState<ClimaDiario[] | null>(null);
-  const [porMunicipio, setPorMunicipio] = useState<RiesgoMunicipio[]>([]);
-  const [error, setError] = useState<string | null>(null);
 
-  // Carga inicial: municipios y tabla general de riesgo
-  useEffect(() => {
-    catalogoApi.municipios()
-      .then((ms) => {
-        const activos = ms.filter((m) => m.activo);
-        setMunicipios(activos);
-        setMunicipioId((id) => id ?? activos[0]?.id ?? null);
-      })
-      .catch((e) => setError(mensajeError(e)));
-    dashboardApi.riesgoMunicipios().then(setPorMunicipio).catch(() => undefined);
-  }, []);
+  // Cada fuente de datos declara de qué depende; useDatos descarta respuestas viejas
+  const municipiosQ = useDatos(() => catalogoApi.municipios().then((ms) => ms.filter((m) => m.activo)), []);
+  const porMunicipioQ = useDatos(() => dashboardApi.riesgoMunicipios(), []);
+  const resumenQ = useDatos(municipioId == null ? null : () => dashboardApi.resumen(municipioId), [municipioId]);
+  const climaQ = useDatos(municipioId == null ? null : () => climaApi.actual(municipioId), [municipioId]);
+  const pronosticoQ = useDatos(municipioId == null ? null : () => climaApi.pronostico(municipioId), [municipioId]);
+  const hayEleccion = municipioId != null && enfermedadId != null;
+  const serieQ = useDatos(hayEleccion ? () => dashboardApi.serie(municipioId, enfermedadId, semanas) : null,
+    [municipioId, enfermedadId, semanas]);
+  const prediccionQ = useDatos(hayEleccion ? () => dashboardApi.prediccion(municipioId, enfermedadId) : null,
+    [municipioId, enfermedadId]);
 
-  // Al cambiar de municipio: semáforo + clima
-  useEffect(() => {
-    if (municipioId == null) return;
-    setResumen(null); setClimaActual(null); setPronostico(null);
-    dashboardApi.resumen(municipioId)
-      .then((r) => {
-        setResumen(r);
-        setEnfermedadId((id) => (id && r.riesgos.some((x) => x.enfermedad_id === id) ? id : r.riesgos[0]?.enfermedad_id ?? null));
-      })
-      .catch((e) => setError(mensajeError(e)));
-    climaApi.actual(municipioId).then(setClimaActual).catch(() => undefined);
-    climaApi.pronostico(municipioId).then(setPronostico).catch(() => setPronostico([]));
-  }, [municipioId]);
+  const municipios = useMemo(() => municipiosQ.datos ?? [], [municipiosQ.datos]);
+  const resumen = resumenQ.datos;
+  const serie = serieQ.datos;
+  const prediccion = prediccionQ.datos;
+  const climaActual = climaQ.datos;
+  const pronostico = pronosticoQ.error ? [] : pronosticoQ.datos;
+  const porMunicipio = porMunicipioQ.datos ?? [];
+  const error = municipiosQ.error ?? resumenQ.error ?? serieQ.error;
 
+  // Primer municipio por defecto
   useEffect(() => {
-    if (municipioId == null || enfermedadId == null) return;
-    setSerie(null);
-    dashboardApi.serie(municipioId, enfermedadId, semanas).then(setSerie).catch((e) => setError(mensajeError(e)));
-  }, [municipioId, enfermedadId, semanas]);
+    if (municipioId == null && municipios.length > 0) setMunicipioId(municipios[0].id);
+  }, [municipios, municipioId]);
 
+  // Al cambiar de municipio se conserva la enfermedad elegida si existe allí
   useEffect(() => {
-    if (municipioId == null || enfermedadId == null) return;
-    setPrediccion(null);
-    dashboardApi.prediccion(municipioId, enfermedadId).then(setPrediccion).catch(() => setPrediccion(null));
-  }, [municipioId, enfermedadId]);
+    if (!resumen) return;
+    setEnfermedadId((id) => (id && resumen.riesgos.some((x) => x.enfermedad_id === id) ? id : resumen.riesgos[0]?.enfermedad_id ?? null));
+  }, [resumen]);
 
   const seleccionada = useMemo(() => resumen?.riesgos.find((r) => r.enfermedad_id === enfermedadId), [resumen, enfermedadId]);
   const municipio = municipios.find((m) => m.id === municipioId);
@@ -145,14 +134,7 @@ export default function DashboardPage() {
                     Validación
                   </label>
                 )}
-                <div className="flex rounded-lg border border-line p-0.5 text-xs" role="group" aria-label="Rango de tiempo">
-                  {RANGOS.map((r) => (
-                    <button key={r.semanas} onClick={() => setSemanas(r.semanas)} aria-pressed={semanas === r.semanas}
-                      className={`rounded-md px-2.5 py-1 font-medium ${semanas === r.semanas ? "bg-surface-2 text-ink" : "text-muted hover:text-ink"}`}>
-                      {r.etiqueta}
-                    </button>
-                  ))}
-                </div>
+                <Segmentado etiqueta="Rango de tiempo" opciones={RANGOS} valor={semanas} onCambiar={setSemanas} />
               </div>
             } />
           <div className="px-3 pb-4 sm:px-5">
@@ -196,14 +178,7 @@ export default function DashboardPage() {
                 <option value="">Todas (la de mayor riesgo)</option>
                 {resumen?.riesgos.map((r) => <option key={r.codigo} value={r.codigo}>{r.nombre}</option>)}
               </select>
-              <div className="flex rounded-lg border border-line p-0.5 text-xs" role="group" aria-label="Periodo del mapa">
-                {([["actual", "Semana actual"], ["predicho", "Próximas 4 semanas"]] as const).map(([v, t]) => (
-                  <button key={v} onClick={() => setModoMapa(v)} aria-pressed={modoMapa === v}
-                    className={`rounded-md px-2.5 py-1 font-medium ${modoMapa === v ? "bg-surface-2 text-ink" : "text-muted hover:text-ink"}`}>
-                    {t}
-                  </button>
-                ))}
-              </div>
+              <Segmentado etiqueta="Periodo del mapa" opciones={MODOS_MAPA} valor={modoMapa} onCambiar={setModoMapa} />
             </div>
           } />
         {porMunicipio.length === 0 ? <Spinner /> : (
