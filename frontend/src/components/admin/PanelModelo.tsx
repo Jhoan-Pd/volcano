@@ -1,11 +1,12 @@
 "use client";
 
-import { BrainCircuit, History, Play } from "lucide-react";
+import { BrainCircuit, History, Play, Radio } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { mensajeError } from "../../api/cliente";
-import { catalogoApi, modeloApi } from "../../api/servicios";
-import type { Enfermedad, EstadoEntrenamiento, ModeloEntrenado } from "../../api/tipos";
+import { catalogoApi, modeloApi, motorApi } from "../../api/servicios";
+import type { Enfermedad, EstadoEntrenamiento, ModeloEntrenado, ProgresoEntrenamiento } from "../../api/tipos";
+import { ErrorSSE } from "../../lib/sse";
 import { fmtFecha, fmtNum } from "../../lib/formato";
 import { Aviso, Boton, claseCabeceraTabla, claseInput, Spinner } from "../ui";
 
@@ -25,6 +26,9 @@ export default function PanelModelo() {
   const [objetivo, setObjetivo] = useState<number | "">("");
   const [seleccionado, setSeleccionado] = useState<number | null>(null);
   const sondeo = useRef<number | null>(null);
+  const [pasos, setPasos] = useState<ProgresoEntrenamiento[]>([]);
+  const [enVivo, setEnVivo] = useState(false);
+  const cancelar = useRef<AbortController | null>(null);
 
   const cargar = useCallback(() => {
     modeloApi.historial(undefined, 60).then(setHistorial).catch((e) => setError(mensajeError(e)));
@@ -48,18 +52,42 @@ export default function PanelModelo() {
     catalogoApi.enfermedades().then(setEnfermedades).catch(() => undefined);
     cargar();
     modeloApi.estado().then((e) => { setEstado(e); if (e.en_curso) vigilar(); }).catch(() => undefined);
-    return detenerSondeo;
+    return () => { detenerSondeo(); cancelar.current?.abort(); };
   }, [cargar, vigilar]);
 
+  /**
+   * Reentrena con el stream del motor gRPC (Entrenar → SSE): cada candidato, el modelo ganador,
+   * las predicciones y las alertas llegan en vivo. Si el motor no está disponible (503) se usa
+   * el endpoint clásico en segundo plano y se consulta el estado cada 3 s.
+   */
   async function reentrenar() {
     setError(null);
+    setPasos([]);
+    const enfermedad = objetivo === "" ? undefined : objetivo;
+    cancelar.current = new AbortController();
     try {
-      setEstado(await modeloApi.reentrenar(objetivo === "" ? undefined : objetivo));
-      vigilar();
+      setEnVivo(true);
+      for await (const { datos } of motorApi.entrenar(enfermedad, cancelar.current.signal)) {
+        setPasos((ps) => [...ps, datos]);
+        if (datos.etapa === "ERROR") setError(datos.mensaje);
+      }
+      cargar();
     } catch (e) {
-      setError(mensajeError(e));
+      if (e instanceof ErrorSSE && e.estado === 503) {
+        try {
+          setEstado(await modeloApi.reentrenar(enfermedad));
+          vigilar();
+        } catch (e2) {
+          setError(mensajeError(e2));
+        }
+      } else if (!(e instanceof DOMException && e.name === "AbortError")) {
+        setError(e instanceof Error ? e.message : mensajeError(e));
+      }
+    } finally {
+      setEnVivo(false);
     }
   }
+  const ultimo = pasos[pasos.length - 1];
 
   const activos = useMemo(() => (historial ?? []).filter((m) => m.activo), [historial]);
   const elegido = activos.find((m) => m.id === seleccionado) ?? activos[0];
@@ -82,13 +110,36 @@ export default function PanelModelo() {
               {enfermedades.filter((e) => e.activo).map((e) => <option key={e.id} value={e.id}>{e.nombre}</option>)}
             </select>
           </div>
-          <Boton onClick={reentrenar} cargando={estado?.en_curso}>
-            <Play size={15} /> {estado?.en_curso ? "Entrenando…" : "Reentrenar modelo"}
+          <Boton onClick={reentrenar} cargando={estado?.en_curso || enVivo}>
+            <Play size={15} /> {estado?.en_curso || enVivo ? "Entrenando…" : "Reentrenar modelo"}
           </Boton>
         </div>
       </div>
 
       {error && <Aviso tipo="error">{error}</Aviso>}
+      {pasos.length > 0 && (
+        <div className="rounded-lg border border-line p-4" aria-live="polite">
+          <div className="flex items-center justify-between gap-3 text-xs">
+            <span className="inline-flex items-center gap-1.5 font-medium">
+              <Radio size={14} className={enVivo ? "animate-pulse text-[var(--st-verde)]" : "text-muted"} aria-hidden />
+              {enVivo ? "Entrenando · stream gRPC Entrenar → SSE" : "Entrenamiento terminado"}
+            </span>
+            <span className="tabular text-muted">{fmtNum(ultimo?.porcentaje, 0)} % · {pasos.length} mensajes</span>
+          </div>
+          <div className="mt-2 h-2 rounded-full bg-surface-2" role="progressbar" aria-valuemin={0} aria-valuemax={100}
+            aria-valuenow={Math.round(ultimo?.porcentaje ?? 0)}>
+            <div className="h-2 rounded-full bg-ink transition-[width] duration-500" style={{ width: `${ultimo?.porcentaje ?? 0}%` }} />
+          </div>
+          <ol className="mt-3 max-h-48 space-y-1 overflow-y-auto text-xs">
+            {[...pasos].reverse().map((p, i) => (
+              <li key={pasos.length - i} className={`flex gap-2 ${i === 0 ? "text-ink" : "text-muted"}`}>
+                <span className="w-24 shrink-0 font-mono text-[10px] uppercase">{p.etapa}</span>
+                <span>{p.enfermedad && p.etapa === "CANDIDATO" ? `${p.enfermedad} · ` : ""}{p.mensaje}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
       {estado && (estado.en_curso || estado.fin) && (
         <Aviso tipo={estado.en_curso ? "info" : estado.errores.length ? "error" : "ok"}>
           {estado.en_curso
