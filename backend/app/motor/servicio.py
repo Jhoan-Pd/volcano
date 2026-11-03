@@ -226,9 +226,14 @@ class MotorPrediccionServicer(rpc.MotorPrediccionServicer):
         total_esc = sum(p.casos_esperados for p in escenario)
         variacion = (total_esc / total_base - 1) * 100 if total_base else (100.0 if total_esc else 0.0)
         peor = NivelRiesgo.peor(p.nivel for p in escenario)
-        resumen = (f"Con {ajustes.describir()}, en {cargado.municipios[esc.municipio_id]} se esperarían "
-                   f"{numero_es(total_esc)} casos de {cargado.enfermedad.lower()} en 4 semanas "
-                   f"({variacion:+.0f} % frente a {numero_es(total_base)}). Nivel máximo: {peor.etiqueta.lower()}.")
+        municipio, enfermedad = cargado.municipios[esc.municipio_id], cargado.enfermedad.lower()
+        if ajustes.sin_cambios:
+            resumen = (f"Sin cambios, en {municipio} se esperan {numero_es(total_esc)} casos de {enfermedad} "
+                       f"en las próximas 4 semanas. Nivel máximo: {peor.etiqueta.lower()}.")
+        else:
+            resumen = (f"Con {ajustes.describir()}, en {municipio} se esperarían {numero_es(total_esc)} casos de "
+                       f"{enfermedad} en 4 semanas ({variacion:+.0f} % frente a {numero_es(total_base)}). "
+                       f"Nivel máximo: {peor.etiqueta.lower()}.")
         return pb.ResultadoEscenario(
             id=esc.id, municipio_id=esc.municipio_id, enfermedad_id=esc.enfermedad_id,
             base=[punto_a_pb(p) for p in base], escenario=[punto_a_pb(p) for p in escenario],
