@@ -1,6 +1,7 @@
 """Actualización diaria (cron de GitHub Actions) sin tocar internet."""
 from datetime import date
 
+import httpx
 import pytest
 
 from app.services import entrenamiento
@@ -78,3 +79,29 @@ def test_control_de_entrenamiento_impide_dos_a_la_vez():
     estado = control.estado()
     assert not estado.en_curso and estado.mensaje == "listo" and estado.errores == ["IRA: sin datos"]
     assert estado.inicio is not None and estado.fin >= estado.inicio
+
+
+def test_revalidar_frontend_es_opcional_y_no_lanza(monkeypatch):
+    from app.core.config import settings
+    from app.notificaciones import frontend
+
+    monkeypatch.setattr(settings, "REVALIDAR_SECRET", None)
+    assert frontend.revalidar_frontend()["revalidado"] is False
+
+    llamadas = []
+
+    def post_falso(url, headers, timeout):
+        llamadas.append((url, headers["Authorization"]))
+        return httpx.Response(200, json={"rutas": ["/"]}, request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(settings, "REVALIDAR_SECRET", "s3creto")
+    monkeypatch.setattr(settings, "FRONTEND_URL", "https://front.test/")
+    monkeypatch.setattr(frontend.httpx, "post", post_falso)
+    assert frontend.revalidar_frontend() == {"revalidado": True, "rutas": ["/"]}
+    assert llamadas == [("https://front.test/api/revalidar", "Bearer s3creto")]
+
+    def post_caido(url, headers, timeout):
+        raise httpx.ConnectError("sin red")
+
+    monkeypatch.setattr(frontend.httpx, "post", post_caido)
+    assert frontend.revalidar_frontend()["revalidado"] is False  # un frontend caído no rompe el cron

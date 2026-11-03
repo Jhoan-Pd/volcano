@@ -16,6 +16,7 @@ from datetime import UTC, datetime
 from app.core.errors import ConflictoError
 from app.db.session import SessionLocal
 from app.ml.progreso import Etapa, EventoProgreso, Progreso, escalar, sin_progreso
+from app.notificaciones.frontend import revalidar_frontend
 from app.schemas.modelo import EstadoEntrenamiento
 from app.services.alerta_service import AlertaService
 from app.services.prediccion_service import PrediccionService
@@ -65,6 +66,7 @@ def reentrenar(enfermedad_id: int | None = None, progreso: Progreso = sin_progre
             modelos, errores = PrediccionService(db).entrenar(enfermedad_id, escalar(progreso, 0.0, 0.95))
             progreso(EventoProgreso(Etapa.ALERTAS, "Recalculando alertas tempranas", 0.95))
             alertas = AlertaService(db).evaluar()
+        revalidar_frontend()  # los tableros ISR del frontend se regeneran con las nuevas predicciones
         mensaje = (f"{len(modelos)} modelo(s) entrenado(s) y predicciones actualizadas; "
                    f"{alertas.activas} alerta(s) activa(s), {alertas.nuevas} nueva(s)")
         control.terminar(mensaje, errores)

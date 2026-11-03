@@ -10,6 +10,7 @@ las demás (una caída de Google Trends no debe impedir actualizar el clima ni l
     4. Modelo: los lunes (o si no hay modelos) se reentrena en segundo plano; los demás días
        solo se regeneran las predicciones con los modelos vigentes.
     5. Alertas: se recalculan y se envían por correo las nuevas.
+    6. Frontend: revalidación bajo demanda de las páginas ISR (tableros por municipio).
 """
 import logging
 import time
@@ -20,6 +21,7 @@ from typing import Literal
 from sqlalchemy import func, select
 
 from app.models import ModeloEntrenado
+from app.notificaciones.frontend import revalidar_frontend
 from app.services.alerta_service import AlertaService
 from app.services.clima_service import ClimaService
 from app.services.entrenamiento import lanzar_en_hilo
@@ -75,8 +77,9 @@ class ActualizacionService:
         else:
             pasos.append(_paso("predicciones", lambda: {"predicciones": PrediccionService(self.db).predecir()}))
 
-        if not en_segundo_plano:
+        if not en_segundo_plano:  # si se reentrena, reentrenar() evalúa alertas y revalida al terminar
             pasos.append(_paso("alertas", lambda: AlertaService(self.db).evaluar()))
+            pasos.append(_paso("frontend", revalidar_frontend))
 
         return {
             "inicio": inicio.isoformat(),
