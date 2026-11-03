@@ -1,10 +1,13 @@
+"use client";
+
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { useMemo } from "react";
 import { Circle, CircleMarker, MapContainer, Marker, Popup, TileLayer, Tooltip } from "react-leaflet";
-import type { Nivel, RiesgoMunicipio } from "../../api/tipos";
+import type { RiesgoMunicipio } from "../../api/tipos";
 import { useTema } from "../../context/ThemeContext";
 import { NIVELES, ORDEN_NIVELES, rangoNivel } from "../../lib/formato";
+import { nivelDe, type ModoMapa } from "./modoMapa";
 
 // Cráter del Volcán Galeras (Servicio Geológico Colombiano)
 const GALERAS: [number, number] = [1.2208, -77.3592];
@@ -17,16 +20,6 @@ const iconoVolcan = L.divIcon({
   iconSize: [28, 24],
   iconAnchor: [14, 22],
 });
-
-export type ModoMapa = "actual" | "predicho";
-
-/** Nivel que se pinta para un municipio según el modo y la enfermedad elegida ("" = la peor). */
-export function nivelDe(f: RiesgoMunicipio, modo: ModoMapa, codigo: string): Nivel {
-  const detalle = modo === "actual" ? f.detalle : f.detalle_predicho;
-  if (codigo) return detalle[codigo] ?? "VERDE";
-  if (modo === "predicho") return f.nivel_max_predicho ?? "VERDE";
-  return f.nivel_max;
-}
 
 export default function MapaRiesgo({ filas, modo, codigo, enfermedades, seleccionado, onSeleccionar }: {
   filas: RiesgoMunicipio[]; modo: ModoMapa; codigo: string; enfermedades: { codigo: string; nombre: string }[];
