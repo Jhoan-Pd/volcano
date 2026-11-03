@@ -45,7 +45,7 @@ export default async function Inicio() {
       <div className="grid gap-6 lg:grid-cols-3">
         <section className="grid gap-4 sm:grid-cols-2 lg:col-span-2" aria-label="Municipios">
           {filas.map((f) => (
-            <Link key={f.municipio_id} href={`/municipio/${f.municipio_id}`}
+            <Link key={f.municipio_id} href={`/municipio/${f.municipio_id}`} data-municipio={f.municipio_id}
               className="group rounded-lg border border-line bg-surface p-4 transition-colors duration-[520ms] hover:bg-surface-2"
               style={{ borderLeft: `4px solid ${NIVELES[f.nivel_max].color}` }}>
               <div className="flex items-start justify-between gap-2">
