@@ -1,3 +1,5 @@
+"use client";
+
 import { CloudSun, Database, FileUp, RefreshCw, Search, Stethoscope } from "lucide-react";
 import { useCallback, useRef, useState, type ReactNode } from "react";
 import { mensajeError } from "../../api/cliente";

@@ -1,3 +1,5 @@
+"use client";
+
 import { ChevronLeft, ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { mensajeError } from "../../api/cliente";

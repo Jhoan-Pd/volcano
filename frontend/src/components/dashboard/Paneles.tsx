@@ -1,3 +1,5 @@
+"use client";
+
 import type { ReactNode } from "react";
 import { CloudRain, Droplets, ExternalLink, Lightbulb, Mountain, Thermometer, Wind } from "lucide-react";
 import type { ClimaActual, EstadoVolcan, RiesgoEnfermedad, RiesgoMunicipio } from "../../api/tipos";

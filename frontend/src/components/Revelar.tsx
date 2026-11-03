@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useRef, useState, type CSSProperties, type ElementType, type ReactNode } from "react";
 
 /** Devuelve true la primera vez que el elemento entra en pantalla (y se queda así). */

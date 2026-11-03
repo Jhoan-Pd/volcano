@@ -1,16 +1,24 @@
+"use client";
+
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
 type Tema = "claro" | "oscuro";
 const ThemeContext = createContext<{ tema: Tema; alternar: () => void } | null>(null);
 
-function temaInicial(): Tema {
-  return document.documentElement.classList.contains("dark") ? "oscuro" : "claro";
-}
-
+/**
+ * El script de <head> (layout.tsx) pone la clase `dark` antes de pintar. El servidor no sabe
+ * qué tema eligió el usuario, así que el estado empieza vacío y se lee de <html> al montar:
+ * así el HTML del servidor y el primer render del cliente coinciden (sin error de hidratación).
+ */
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [tema, setTema] = useState<Tema>(temaInicial);
+  const [tema, setTema] = useState<Tema | null>(null);
 
   useEffect(() => {
+    setTema(document.documentElement.classList.contains("dark") ? "oscuro" : "claro");
+  }, []);
+
+  useEffect(() => {
+    if (!tema) return;
     document.documentElement.classList.toggle("dark", tema === "oscuro");
     try {
       localStorage.setItem("tema", tema);
@@ -20,7 +28,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [tema]);
 
   return (
-    <ThemeContext.Provider value={{ tema, alternar: () => setTema((t) => (t === "claro" ? "oscuro" : "claro")) }}>
+    <ThemeContext.Provider value={{ tema: tema ?? "claro", alternar: () => setTema((t) => (t === "oscuro" ? "claro" : "oscuro")) }}>
       {children}
     </ThemeContext.Provider>
   );

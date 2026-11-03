@@ -1,3 +1,5 @@
+"use client";
+
 import { useCallback, useEffect, useRef, useState, type DependencyList } from "react";
 import { mensajeError } from "../api/cliente";
 

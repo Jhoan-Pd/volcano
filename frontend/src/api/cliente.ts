@@ -1,9 +1,11 @@
 import axios, { AxiosError } from "axios";
 
-const BASE = (import.meta.env.VITE_API_URL ?? "http://localhost:8000").replace(/\/$/, "");
+/** URL de la API (la define next.config.ts a partir de NEXT_PUBLIC_API_URL). */
+export const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/$/, "");
+export const API_V1 = `${API_BASE}/api/v1`;
 
 export const api = axios.create({
-  baseURL: `${BASE}/api/v1`,
+  baseURL: API_V1,
   timeout: 60_000, // Render (plan gratis) puede tardar ~50 s en "despertar"
 });
 
