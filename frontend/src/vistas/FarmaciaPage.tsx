@@ -1,3 +1,5 @@
+"use client";
+
 import { CheckCircle2, ClipboardList, History, Pencil, Pill, Save, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
