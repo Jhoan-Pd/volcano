@@ -11,6 +11,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { RenderPanel } from "@/components/render/RenderPanel";
+import { pedir } from "@/lib/servidor";
 import { cargarTablero, municipiosActivos, SEMANAS_MAXIMAS } from "@/lib/tablero";
 import TableroMunicipio from "@/vistas/TableroMunicipio";
 
@@ -21,6 +22,9 @@ type Props = { params: Promise<{ id: string }> };
 
 export async function generateStaticParams() {
   try {
+    // La lista puede venir de la caché de datos de un build anterior (Vercel la conserva):
+    // antes de prometer un HTML por municipio se confirma que la API responde ahora mismo.
+    await pedir("/municipios", { limit: 1 }, { cache: "no-store", timeoutMs: 15_000 });
     return (await municipiosActivos()).map((m) => ({ id: String(m.id) }));
   } catch {
     // La API (Render, plan gratis) puede estar dormida durante el build: entonces cada
