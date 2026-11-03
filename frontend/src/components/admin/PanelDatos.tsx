@@ -1,12 +1,14 @@
 "use client";
 
 import { CloudSun, Database, FileUp, RefreshCw, Search, Stethoscope } from "lucide-react";
-import { useCallback, useRef, useState, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { mensajeError } from "../../api/cliente";
 import { climaApi, datosApi } from "../../api/servicios";
 import type { ResultadoImportacion, TipoImportacion } from "../../api/tipos";
 import { fmtFecha, fmtNum } from "../../lib/formato";
 import { useDatos } from "../../lib/useDatos";
+import type { ResultadoCsv } from "../../workers/csv/analizar";
+import RevisionCsv from "../RevisionCsv";
 import { Aviso, Boton, claseCabeceraTabla, claseInput, Etiqueta, Spinner } from "../ui";
 
 type Mensaje = { tipo: "ok" | "error"; texto: string } | null;
@@ -141,19 +143,16 @@ export default function PanelDatos() {
 
 function CargaCsv({ alTerminar }: { alTerminar: () => void }) {
   const [tipo, setTipo] = useState<TipoImportacion>("casos");
-  const [archivo, setArchivo] = useState<File | null>(null);
   const [resultado, setResultado] = useState<ResultadoImportacion | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
-  const input = useRef<HTMLInputElement>(null);
 
-  async function subir() {
-    if (!archivo) return;
+  /** Sube el archivo original o, si hubo errores, un CSV limpio armado por el worker con las filas válidas. */
+  async function subir(r: ResultadoCsv, archivo: File, soloValidas: boolean) {
     setCargando(true); setResultado(null); setError(null);
     try {
-      setResultado(await datosApi.importar(tipo, archivo));
-      setArchivo(null);
-      if (input.current) input.current.value = "";
+      const datos = soloValidas ? new File([r.csvValido], archivo.name.replace(/\.csv$/i, "") + "-validas.csv", { type: "text/csv" }) : archivo;
+      setResultado(await datosApi.importar(tipo, datos));
       alTerminar();
     } catch (e) {
       setError(mensajeError(e));
@@ -166,25 +165,35 @@ function CargaCsv({ alTerminar }: { alTerminar: () => void }) {
     <div className="rounded-lg border border-line p-4">
       <p className="flex items-center gap-2 font-medium"><FileUp size={16} className="text-muted" /> Carga de CSV</p>
       <p className="mt-1 text-sm text-ink-2">
-        Inserta o actualiza registros (subir el mismo archivo dos veces no duplica). Separador coma o punto y coma; máximo 5 MB.
+        El archivo se revisa primero en tu navegador con un Web Worker (columnas, tipos, municipios y enfermedades) y solo
+        después se sube. Inserta o actualiza registros: subir el mismo archivo dos veces no duplica. Máximo 5 MB.
       </p>
-      <div className="mt-3 grid gap-3 md:grid-cols-[14rem_1fr_auto] md:items-end">
+      <div className="mt-3 max-w-xs">
         <Etiqueta texto="Tipo de archivo">
           <select className={claseInput} value={tipo} onChange={(e) => { setTipo(e.target.value as TipoImportacion); setResultado(null); }}>
             {Object.entries(PLANTILLAS).map(([k, v]) => <option key={k} value={k}>{v.etiqueta}</option>)}
           </select>
         </Etiqueta>
-        <Etiqueta texto="Archivo" ayuda={`Columnas: ${PLANTILLAS[tipo].columnas}`}>
-          <input ref={input} type="file" accept=".csv,text/csv" className={`${claseInput} py-1.5 file:mr-3 file:rounded-md file:border-0 file:bg-surface-2 file:px-2 file:py-1 file:text-xs file:font-medium file:text-ink`}
-            onChange={(e) => setArchivo(e.target.files?.[0] ?? null)} />
-        </Etiqueta>
-        <Boton onClick={subir} cargando={cargando} disabled={!archivo} className="md:mb-5"><FileUp size={15} /> Importar</Boton>
+      </div>
+      <div className="mt-3">
+        <RevisionCsv key={tipo} tipo={tipo} accion={(r, archivo) => (
+          <div className="flex flex-wrap gap-2 border-t border-line pt-3">
+            <Boton onClick={() => subir(r, archivo, false)} cargando={cargando} disabled={r.filasValidas === 0}>
+              <FileUp size={15} /> Importar el archivo
+            </Boton>
+            {r.filasValidas > 0 && r.filasValidas < r.filasLeidas && (
+              <Boton variante="secundario" onClick={() => subir(r, archivo, true)} cargando={cargando}>
+                Importar solo las {fmtNum(r.filasValidas)} filas válidas
+              </Boton>
+            )}
+          </div>
+        )} />
       </div>
       {error && <div className="mt-3"><Aviso tipo="error">{error}</Aviso></div>}
       {resultado && (
         <div className="mt-3 space-y-2">
           <Aviso tipo={resultado.errores.length ? "info" : "ok"}>
-            {fmtNum(resultado.filas_leidas)} filas leídas · {fmtNum(resultado.insertadas)} nuevas · {fmtNum(resultado.actualizadas)} actualizadas
+            Servidor: {fmtNum(resultado.filas_leidas)} filas leídas · {fmtNum(resultado.insertadas)} nuevas · {fmtNum(resultado.actualizadas)} actualizadas
             {resultado.errores.length > 0 && ` · ${resultado.errores.length} con errores`}
           </Aviso>
           {resultado.errores.length > 0 && (
