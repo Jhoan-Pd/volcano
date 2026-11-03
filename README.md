@@ -6,8 +6,9 @@ Plataforma web que cruza **datos públicos** (clima, búsquedas de síntomas en 
 
 | | |
 |---|---|
-| **Frontend** | React 19 · Vite · TypeScript · TailwindCSS 4 · Recharts · React-Leaflet · React Router · Axios · Fontsource |
+| **Frontend** | Next.js 16 (App Router: SSG · ISR · SSR · CSR) · React 19 · TypeScript · TailwindCSS 4 · Recharts · React-Leaflet · Axios · Web Workers |
 | **Backend** | Python 3.12 · FastAPI · SQLAlchemy 2 · Pydantic 2 · Alembic · scikit-learn · pandas · ReportLab |
+| **Motor de predicción** | Servidor **gRPC** (grpcio, protobuf) con los 4 tipos de RPC · puente REST/**SSE**/**WebSocket** en FastAPI |
 | **Base de datos** | PostgreSQL (Neon o Supabase, plan gratuito) · SQLite para desarrollo rápido |
 | **Automatización** | GitHub Actions: actualización diaria (cron) e integración continua |
 | **Despliegue** | Vercel (frontend) · Render (backend) · Neon/Supabase (BD) |
@@ -21,6 +22,7 @@ Plataforma web que cruza **datos públicos** (clima, búsquedas de síntomas en 
 | `v0.5.0` | **1 · Revisión del 50 %** | Estructura, BD con 13 tablas + migraciones + seed, auth JWT con roles, Open-Meteo, CRUD admin, dashboard con gráficas, despliegue | ✅ |
 | `v0.8.0` | **2** | Google Trends (pytrends + caché + CSV), SIVIGILA (Socrata), módulo de farmacias, modelo predictivo (promedio móvil vs. Random Forest/Gradient Boosting), semáforo predictivo, carga de CSV | ✅ |
 | `v1.0.0` | **3** | Alertas (banner + correo con Resend), mapa Leaflet, explicabilidad, reportes PDF/CSV, cron diario, CI, pruebas, README final | ✅ |
+| `v2.0.0` | **Programación web** | Next.js con SSG/ISR/SSR/CSR y panel del patrón, motor gRPC (unary, server/client streaming, bidireccional) con SSE y WebSocket, Web Workers | ✅ |
 
 Cada versión es una etiqueta (*tag*) de git. El historial completo de ramas y commits está descrito en [Trazabilidad](#trazabilidad-del-desarrollo-git).
 
@@ -29,25 +31,23 @@ Cada versión es una etiqueta (*tag*) de git. El historial completo de ramas y c
 ## Arquitectura
 
 ```
-┌──────────── Vercel ────────────┐        ┌──────────────────────── Render ─────────────────────────┐
-│ React SPA (Vite + TS)          │ HTTPS  │ FastAPI                                                 │
-│  pages → components → api/     │ ─────► │  routers   HTTP, validación de entrada, roles           │
-│  Axios + JWT (Bearer)          │  JSON  │  services  reglas de negocio (riesgo, alertas, reportes)│
-│  Recharts · Leaflet            │        │  repositories  acceso a datos con SQLAlchemy            │
-└────────────────────────────────┘        │  models (ORM) · schemas (Pydantic)                      │
-                                          │  ml/       dataset · modelos · entrenador · explicador  │
- GitHub Actions (cron 6:00 a. m.) ──────► │  fuentes/  FuenteDatos (ABC) ── Strategy + Adapter      │
- POST /api/v1/jobs/actualizar-datos       │     ├─ OpenMeteoFuente  → api.open-meteo.com            │
- cabecera X-Cron-Secret                   │     ├─ TrendsFuente     → Google Trends (+ CSV)         │
-                                          │     ├─ SivigilaFuente   → datos.gov.co (Socrata)        │
-                                          │     └─ FarmaciaFuente   → reportes de farmacias en BD   │
-                                          │  notificaciones/  NotificadorCorreo ── ResendNotificador│ ──► Resend
-                                          └───────────────────────────┬─────────────────────────────┘
-                                                                      ▼
-                                                        PostgreSQL (Neon / Supabase)
+┌────────────── Vercel ──────────────┐            ┌─────────────────── Render (un servicio) ───────────────────┐
+│ Next.js 16 (App Router)            │  fetch en  │ FastAPI (público, $PORT)                                  │
+│  SSG  fichas, metodología          │  el server │  routers → services → repositories → models/schemas      │
+│  ISR  inicio, /municipio/[id] ◄────┼── revalida ┤  /motor/*  puente REST · SSE · WebSocket ──┐ gRPC        │
+│  SSR  /alertas, /reportes          │ ─────────► │                                           ▼ (HTTP/2)    │
+│  CSR  mapa, simulador, paneles     │            │ Motor de predicción gRPC (127.0.0.1:50051)                │
+└──────────────┬─────────────────────┘            │  Predecir · Entrenar · SeguirAlertas ·                    │
+               │ navegador: JSON · SSE · WebSocket │  CargarReportesFarmacia · SimularEscenarios               │
+               └──────────────────────────────────►│  caché de modelos · difusor de alertas · interceptores    │
+   Web Workers: CSV y matriz de sensibilidad       └────────────────────────────┬──────────────────────────────┘
+                                                                                ▼
+ GitHub Actions (cron 6:00 a. m.) → POST /jobs/actualizar-datos      PostgreSQL (Neon) · Resend (correo)
 ```
 
-**Flujo de datos:** las fuentes se sincronizan a la BD → `ml/dataset.py` arma una tabla semanal municipio × semana con rezagos → el entrenador compara algoritmos y guarda el mejor en `modelos_entrenados` → se generan `predicciones` de 4 semanas → el servicio de alertas revisa riesgo observado y predicho → el dashboard, los reportes y los correos leen esas tablas.
+**Flujo de datos:** las fuentes se sincronizan a la BD → `ml/dataset.py` arma una tabla semanal municipio × semana con rezagos → el entrenador compara algoritmos y guarda el mejor en `modelos_entrenados` → se generan `predicciones` de 4 semanas → el servicio de alertas revisa riesgo observado y predicho → el backend pide a Vercel regenerar los tableros ISR → el navegador recibe las alertas nuevas por SSE.
+
+La parte de **programación orientada a la web** (patrones de rendering, gRPC, streams y workers) está documentada en detalle en [`docs/PROGRAMACION_WEB.md`](docs/PROGRAMACION_WEB.md).
 
 ### Estructura de carpetas
 
@@ -71,21 +71,30 @@ sentinela-predictor/
 │   │   │                          #   alertas, importación CSV, reportes, actualización diaria
 │   │   ├── fuentes/               # FuenteDatos (abstracta) + 4 adaptadores
 │   │   ├── ml/                    # dataset sin fuga, modelos (Strategy), entrenador, explicador
-│   │   ├── notificaciones/        # NotificadorCorreo (abstracto) + Resend
+│   │   ├── motor/                 # servidor gRPC: protos/prediccion.proto, servicio, interceptores,
+│   │   │                          #   caché de modelos, difusor de alertas, cliente grpc.aio
+│   │   ├── notificaciones/        # NotificadorCorreo (abstracto) + Resend · revalidación del frontend
 │   │   ├── routers/               # auth, usuarios, catálogos, clima, dashboard, datos, farmacia,
-│   │   │                          #   modelo, alertas, reportes, jobs
+│   │   │                          #   modelo, motor (REST/SSE/WebSocket ↔ gRPC), alertas, reportes, jobs
 │   │   └── seed/                  # python -m app.seed  (catálogo, generadores, CSV)
 │   ├── alembic/versions/          # 0001 esquema · 0002 mapeos de fuentes · 0003 alertas
 │   ├── data/trends/               # CSV de respaldo de Google Trends
-│   ├── tests/                     # 89 pruebas pytest
+│   ├── tests/                     # 110 pruebas pytest (19 del motor gRPC y su puente)
+│   ├── scripts/generar_grpc.sh    # genera el código Python a partir del .proto
+│   ├── start.sh                   # Render: migraciones + motor gRPC + uvicorn
 │   └── requirements.txt · requirements-dev.txt · .env.example
-└── frontend/
+└── frontend/                      # Next.js 16 (App Router)
     ├── src/
+    │   ├── app/                   # rutas: page.tsx (ISR), municipio/[id] (ISR), enfermedades (SSG),
+    │   │                          #   metodologia (SSG), patrones (SSG), alertas y reportes (SSR),
+    │   │                          #   mapa, simulador, admin, farmacia, login (CSR), api/revalidar
     │   ├── api/                   # cliente Axios (JWT, errores) + servicios + tipos
+    │   ├── components/            # ui, Cabecera, BannerAlertas, render/RenderPanel, dashboard/*, admin/*
     │   ├── context/               # AuthContext (sesión/roles) · ThemeContext (claro/oscuro)
-    │   ├── components/            # ui, Layout, BannerAlertas, dashboard/*, admin/*
-    │   └── pages/                 # Dashboard (público), Login, Farmacia, Admin
-    └── vercel.json · .env.example · vite.config.ts
+    │   ├── lib/                   # servidor.ts (fetch con caché por patrón), tablero, SSE, hooks
+    │   ├── vistas/                # componentes de cliente de cada pantalla
+    │   └── workers/               # csv.worker.ts · sensibilidad.worker.ts
+    └── vercel.json · .env.example · next.config.ts · scripts/despertar-api.mjs
 ```
 
 ---
@@ -198,12 +207,21 @@ La evaluación es idempotente: no duplica alertas, actualiza el nivel si empeora
 
 ## Módulos y pantallas
 
-| Pantalla | Rol | Qué hace |
-|---|---|---|
-| **Dashboard** | público | Semáforo actual y de las próximas 4 semanas por enfermedad, histórico vs. predicción con intervalo, panel «¿por qué?», mapa de riesgo (actual/predicho), estado del Galeras, clima actual y pronóstico de 16 días, recomendaciones, descarga de reportes |
-| **Farmacia** | FARMACIA (y ADMIN) | Reporte semanal de ventas por categoría con validaciones, historial, edición y gráfica |
-| **Administración** | ADMIN | CRUD de enfermedades (con umbrales), municipios, farmacias, usuarios y eventos volcánicos · Fuentes de datos (sincronizar clima, Trends y SIVIGILA, carga de CSV, estado de tablas) · Modelo (reentrenar, métricas, comparación, importancias, historial) · Alertas (evaluar, cerrar, exportar) |
-| **Login / registro** | — | Los ciudadanos se registran con su municipio para recibir alertas |
+| Ruta | Patrón | Rol | Qué hace |
+|---|---|---|---|
+| `/` **Inicio** | ISR | público | Riesgo actual y predicho de cada municipio, estado del Galeras y cómo está construido el sitio |
+| `/municipio/[id]` **Tablero** | ISR | público | Semáforo actual y de 4 semanas, histórico vs. predicción, panel «¿por qué?», mapa, clima, pronóstico, recomendaciones y descargas |
+| `/mapa` **Mapa en vivo** | CSR | público | Leaflet con el riesgo por municipio y alertas que llegan por SSE (stream gRPC `SeguirAlertas`) |
+| `/simulador` **¿Qué pasa si…?** | CSR | público | Escenarios por WebSocket (gRPC bidireccional), pronóstico unary y matriz de sensibilidad en un Web Worker |
+| `/alertas` **Buscar alertas** | SSR | público | Historial filtrable por texto, municipio, enfermedad, nivel, estado y origen; URL compartible |
+| `/reportes` | SSR | público | Vista previa imprimible del reporte por municipio y descargas PDF/CSV |
+| `/enfermedades/[codigo]` | SSG | público | Fichas: síntomas, transmisión, prevención y señales que usa el modelo |
+| `/metodologia` · `/patrones` | SSG | público | Metodología y arquitectura · comparativa de los 4 patrones con medidor en vivo |
+| `/farmacia` | CSR | FARMACIA (y ADMIN) | Reporte semanal, historial, edición, gráfica y carga masiva de CSV (Web Worker + client streaming) |
+| `/admin` | CSR | ADMIN | CRUD de catálogos · fuentes de datos con revisión de CSV en un Web Worker · reentrenamiento con avance en vivo (SSE) · alertas |
+| `/login` | CSR | — | Ingreso y registro de ciudadanos con su municipio para recibir alertas |
+
+Cada página muestra arriba un **panel del patrón de rendering** con la hora en que se generó el HTML, su antigüedad, el TTFB y por qué se eligió ese patrón.
 
 ---
 
@@ -234,6 +252,7 @@ pip install -r requirements-dev.txt
 copy .env.example .env              # por defecto usa SQLite: no hay que instalar PostgreSQL
 alembic upgrade head                # crea las 13 tablas (3 migraciones)
 python -m app.seed --entrenar       # datos de prueba + entrena los 4 modelos + alertas (~1 min)
+python -m app.motor.servidor        # (otra terminal) motor gRPC en 127.0.0.1:50051
 uvicorn app.main:app --reload       # http://localhost:8000/docs
 ```
 
@@ -246,15 +265,16 @@ Opciones del seed: `--sin-red` (no consulta Open-Meteo), `--reset` (borra todo y
 ```powershell
 cd frontend
 npm install
-copy .env.example .env              # VITE_API_URL=http://localhost:8000
-npm run dev                         # http://localhost:5173
+copy .env.example .env.local        # NEXT_PUBLIC_API_URL=http://localhost:8000
+npm run dev                         # http://localhost:3000 (en desarrollo todo se renderiza por petición)
+npm run build && npm start          # producción local: aquí sí se ven SSG e ISR de verdad
 ```
 
 ### 3. Pruebas
 
 ```powershell
 cd backend
-pytest                              # 89 pruebas
+pytest                              # 110 pruebas
 ruff check app tests                # calidad de código (0 hallazgos)
 ```
 
@@ -270,6 +290,8 @@ ruff check app tests                # calidad de código (0 hallazgos)
 | `test_open_meteo.py`, `test_trends.py`, `test_sivigila.py` | adaptadores de fuentes con HTTP simulado, caché y respaldo CSV |
 | `test_farmacia.py`, `test_seed_senales.py`, `test_canal_endemico.py`, `test_migraciones.py` | módulo de farmacias, datos semilla, semáforo, `alembic check` |
 | `test_consultas.py`, `test_texto.py` | límite de consultas SQL (evita N+1), upsert genérico y utilidades de texto |
+| `test_motor.py` | motor gRPC real en un puerto libre: token y salud, `Predecir` igual a lo guardado y con caché, escenarios bidireccionales, avance del entrenamiento con `ABORTED` concurrente, eventos de alertas, carga de farmacias por stream |
+| `test_motor_api.py` | puente REST → gRPC: 404/503 traducidos, SSE de entrenamiento solo ADMIN, 409 antes del stream, carga de filas y simulador por WebSocket |
 
 ### Usuarios de demostración (creados por el seed)
 
@@ -303,9 +325,18 @@ ruff check app tests                # calidad de código (0 hallazgos)
 | `RESEND_API_KEY` | API key de Resend. Sin ella no se envían correos (las alertas igual se ven en el banner) |
 | `ALERTAS_EMAIL_DESTINO` | Correos que reciben todas las alertas, separados por coma |
 | `ALERTAS_A_CIUDADANOS` | `true`: cada ciudadano registrado recibe las alertas de su municipio |
-| `FRONTEND_URL` | URL pública del frontend, para el enlace de los correos |
+| `FRONTEND_URL` | URL pública del frontend: enlace de los correos y destino de la revalidación ISR |
+| `REVALIDAR_SECRET` | Opcional. Mismo valor que en Vercel: al terminar el cron o un reentrenamiento el backend llama a `/api/revalidar` y los tableros ISR se regeneran al instante |
+| `MOTOR_GRPC_DIRECCION` | Dónde escucha el motor gRPC (`127.0.0.1:50051`; nunca se expone a internet) |
+| `MOTOR_GRPC_TOKEN` | Token que la API envía al motor en el metadato `authorization` (Render lo genera) |
+| `MOTOR_INTERVALO_ALERTAS_S`, `MOTOR_CACHE_TTL_S` | Cada cuánto el motor revisa cambios de alertas y cuánto dura un modelo en su caché |
 
-**Frontend** (`frontend/.env.example`): `VITE_API_URL` es la URL pública del backend, sin `/` final.
+**Frontend** (`frontend/.env.example`):
+
+| Variable | Descripción |
+|---|---|
+| `NEXT_PUBLIC_API_URL` | URL pública del backend, sin `/` final (también se acepta la antigua `VITE_API_URL`) |
+| `REVALIDAR_SECRET` | Opcional. Protege `POST /api/revalidar` (revalidación bajo demanda) |
 
 ---
 
@@ -322,7 +353,7 @@ git push origin --all               # sube también las ramas de cada funcionali
 git push origin --tags              # sube v0.5.0, v0.8.0 y v1.0.0
 ```
 
-> Si ya tenías el portal de SentinelaIA desplegado en Vercel desde este repositorio, no hay que cambiar nada en Vercel: el `vercel.json` de la raíz ahora compila `frontend/` y publica `frontend/dist`. Solo agrega la variable `VITE_API_URL` (paso 3) y vuelve a desplegar.
+> **Si el proyecto ya estaba en Vercel con la versión Vite:** en *Settings → Build and Deployment* cambia **Root Directory** a `frontend` y **Framework Preset** a **Next.js** (el `vercel.json` de la raíz ya no existe). La variable `VITE_API_URL` sigue funcionando. En Render cambia el **Start Command** a `sh start.sh` para levantar el motor gRPC.
 
 ### Paso 1 · Base de datos en Neon (recomendado)
 
@@ -347,30 +378,31 @@ git push origin --tags              # sube v0.5.0, v0.8.0 y v1.0.0
 2. **New → Blueprint** y selecciona tu repositorio. Render lee `render.yaml` y propone el servicio `predictor-brotes-api`.
 3. Completa las variables que pide:
    - `DATABASE_URL`: la cadena de Neon del paso 1.
-   - `CORS_ORIGINS` y `FRONTEND_URL`: de momento `http://localhost:5173`; las actualizas en el paso 4.
+   - `CORS_ORIGINS` y `FRONTEND_URL`: de momento `http://localhost:3000`; las actualizas en el paso 4.
    - `ADMIN_PASSWORD` y `DEMO_PASSWORD`: contraseñas con letras y números.
    - `RESEND_API_KEY` y `ALERTAS_EMAIL_DESTINO`: opcionales (paso 6). Puedes dejarlas vacías.
    - `JWT_SECRET` y `CRON_SECRET` se generan solos.
-4. **Apply**. El primer despliegue tarda unos 5 minutos: instala dependencias, corre las migraciones y el seed (con clima real de Open-Meteo). Al arrancar, entrena los modelos en segundo plano (unos minutos en el plan gratis).
+4. **Apply**. El primer despliegue tarda unos 5 minutos: instala dependencias y ejecuta `start.sh`, que corre las migraciones y el seed (con clima real de Open-Meteo), levanta el **motor gRPC** en `127.0.0.1:50051`, espera su chequeo de salud y arranca uvicorn. Al arrancar, entrena los modelos en segundo plano (unos minutos en el plan gratis).
 5. Comprueba que funciona:
    - `https://predictor-brotes-api.onrender.com/health` debe responder `{"status":"ok","bd":"ok"}`.
    - `https://predictor-brotes-api.onrender.com/docs` muestra Swagger.
+   - `https://predictor-brotes-api.onrender.com/api/v1/motor/estado` debe responder `"disponible": true` (motor gRPC).
 
-> **Sin Blueprint:** New → Web Service → repo → *Root Directory* `backend`, *Build* `pip install -r requirements.txt`, *Start* `alembic upgrade head && python -m app.seed && uvicorn app.main:app --host 0.0.0.0 --port $PORT`, *Instance type* Free. Agrega las mismas variables y además `PYTHON_VERSION=3.12.8`.
+> **Sin Blueprint:** New → Web Service → repo → *Root Directory* `backend`, *Build* `pip install -r requirements.txt`, *Start* `sh start.sh`, *Instance type* Free. Agrega las mismas variables y además `PYTHON_VERSION=3.12.8`.
 >
 > El plan gratuito **se duerme tras 15 min sin uso**; la primera visita tarda ~50 s en despertar. Antes de presentar, abre `/health` un minuto antes.
 
 ### Paso 3 · Frontend en Vercel
 
 1. <https://vercel.com> → **Sign up** con GitHub → **Add New → Project** → importa el repositorio.
-2. **Root Directory**: déjalo en la raíz del repositorio (`./`) o ponlo en `frontend`; funciona de las dos formas, porque hay un `vercel.json` en la raíz (instala y compila `frontend/` y publica `frontend/dist`) y otro dentro de `frontend/`. Ambos definen las rutas del SPA.
-3. **Environment Variables**: `VITE_API_URL` = `https://predictor-brotes-api.onrender.com`, sin `/` final.
-4. **Deploy**. Obtendrás una URL como `https://sentinela-predictor.vercel.app`.
+2. **Root Directory**: `frontend`. **Framework Preset**: Next.js (lo detecta solo).
+3. **Environment Variables**: `NEXT_PUBLIC_API_URL` = `https://predictor-brotes-api.onrender.com`, sin `/` final. Opcional: `REVALIDAR_SECRET` (el mismo valor en Render).
+4. **Deploy**. Antes de `next build`, `scripts/despertar-api.mjs` despierta el backend para que las páginas SSG e ISR se generen con datos. Obtendrás una URL como `https://volcano-ecru.vercel.app`.
 
 ### Paso 4 · Conectar ambos (CORS)
 
 En Render → tu servicio → **Environment**, cambia
-`CORS_ORIGINS=https://sentinela-predictor.vercel.app,http://localhost:5173` y `FRONTEND_URL=https://sentinela-predictor.vercel.app`, y guarda. Render se redepliega solo.
+`CORS_ORIGINS=https://sentinela-predictor.vercel.app,http://localhost:3000` y `FRONTEND_URL=https://sentinela-predictor.vercel.app`, y guarda. Render se redepliega solo.
 
 Si quieres que funcionen las URLs de *preview*, agrega `CORS_ORIGIN_REGEX=https://sentinela-predictor.*\.vercel\.app`.
 
@@ -441,6 +473,19 @@ La interfaz muestra la etiqueta **«Datos simulados»** donde corresponde y el p
 11. **Semana epidemiológica real.** Se usa `epiweeks` (semanas que inician en domingo, como el INS, con semana 53). El sistema anterior asumía 52 semanas fijas. También se corrigió el DIVIPOLA de La Florida (52299 → **52381**).
 12. **Dengue y altitud.** El *Aedes aegypti* casi no sobrevive por encima de ~1.800 m; por eso el riesgo de dengue se concentra en Consacá y Sandoná.
 13. **Visualización accesible.** El semáforo siempre combina icono + texto + color; ninguna gráfica tiene dos ejes Y; los colores son tokens con variantes para claro y oscuro; el mapa de Leaflet se carga aparte para no hacer más lento el dashboard.
+
+---
+
+## Programación orientada a la Web
+
+| Tema | Dónde | Resumen |
+|---|---|---|
+| **Patrones de rendering** | `frontend/src/app/` | SSG (fichas, metodología, comparativa), ISR con revalidación bajo demanda (inicio y tablero por municipio), SSR (búsqueda de alertas y reportes) y CSR (mapa en vivo, simulador, paneles privados). Cada página trae su panel con el patrón y `/patrones` los mide en vivo |
+| **gRPC** | `backend/app/motor/` | Contrato `prediccion.proto` con unary (`Estado`, `Predecir`), server streaming (`Entrenar`, `SeguirAlertas`), client streaming (`CargarReportesFarmacia`) y bidireccional (`SimularEscenarios`). Interceptores de token y registro, health check estándar, reflexión, caché de modelos y difusor pub/sub de alertas |
+| **Puente web** | `backend/app/routers/motor.py` | FastAPI es el cliente gRPC (`grpc.aio`) y traduce: unary → JSON, server streaming → SSE, client streaming → POST de filas, bidireccional → WebSocket. Errores gRPC ↔ HTTP en un solo módulo |
+| **Web Workers** | `frontend/src/workers/` | Lectura y validación de CSV (admin y farmacias) y matriz de sensibilidad del simulador con su propio WebSocket, fuera del hilo principal |
+
+El detalle, con diagramas y el porqué de cada decisión, está en [`docs/PROGRAMACION_WEB.md`](docs/PROGRAMACION_WEB.md).
 
 ---
 
