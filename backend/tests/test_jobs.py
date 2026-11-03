@@ -65,7 +65,7 @@ def test_los_lunes_se_descarga_sivigila_y_se_reentrena(db, fuentes_falsas):
 
     martes = date(2026, 10, 6)
     pasos = [p["paso"] for p in ActualizacionService(db, hoy=martes).ejecutar(reentrenar="no")["pasos"]]
-    assert pasos == ["clima", "tendencias", "predicciones", "alertas"]
+    assert pasos == ["clima", "tendencias", "predicciones", "alertas", "frontend"]
 
 
 def test_control_de_entrenamiento_impide_dos_a_la_vez():
