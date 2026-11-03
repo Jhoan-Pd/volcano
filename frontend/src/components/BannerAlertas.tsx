@@ -1,8 +1,9 @@
-import { ChevronDown, X } from "lucide-react";
-import { useEffect, useState } from "react";
-import { alertaApi } from "../api/servicios";
-import type { Alerta } from "../api/tipos";
-import { NIVELES } from "../lib/formato";
+"use client";
+
+import { ChevronDown, Radio, X } from "lucide-react";
+import { useState } from "react";
+import { NIVELES } from "@/lib/formato";
+import { useAlertasEnVivo } from "@/lib/useAlertasEnVivo";
 import { NivelChip } from "./ui";
 
 const CLAVE = "alertas-ocultas";
@@ -13,25 +14,18 @@ function leerOcultas(): string {
 
 /**
  * Banner de alertas tempranas: aparece en todas las páginas cuando hay riesgo alto o muy
- * alto (observado o predicho). Se puede ocultar durante la sesión; si cambian las alertas
- * vuelve a aparecer.
+ * alto (observado o predicho). Se actualiza en vivo con el stream del motor gRPC (SSE). Se
+ * puede ocultar durante la sesión; si cambian las alertas vuelve a aparecer.
  */
 export default function BannerAlertas() {
-  const [alertas, setAlertas] = useState<Alerta[]>([]);
+  const { alertas, modo } = useAlertasEnVivo();
   const [abierto, setAbierto] = useState(false);
-  const [ocultas, setOcultas] = useState(leerOcultas);
+  const [ocultas, setOcultas] = useState<string | null>(null);
 
-  useEffect(() => {
-    const cargar = () => alertaApi.activas().then(setAlertas).catch(() => undefined);
-    cargar();
-    const id = window.setInterval(cargar, 5 * 60_000);
-    return () => window.clearInterval(id);
-  }, []);
+  const firma = [...alertas].sort((a, b) => a.id - b.id).map((a) => `${a.id}:${a.nivel}`).join(",");
+  if (!alertas.length || (ocultas ?? leerOcultas()) === firma) return null;
 
-  const firma = alertas.map((a) => `${a.id}:${a.nivel_riesgo}`).join(",");
-  if (!alertas.length || ocultas === firma) return null;
-
-  const hayRojo = alertas.some((a) => a.nivel_riesgo === "ROJO");
+  const hayRojo = alertas.some((a) => a.nivel === "ROJO");
   const nivel = hayRojo ? "ROJO" : "NARANJA";
   const municipios = [...new Set(alertas.map((a) => a.municipio))];
 
@@ -51,6 +45,9 @@ export default function BannerAlertas() {
           </span>
           <span className="sm:hidden"><NivelChip nivel={nivel} texto={hayRojo ? "Muy alto" : "Alto"} /></span>
           <p className="min-w-0 flex-1 truncate text-sm text-ink">
+            {modo === "en-vivo" && (
+              <Radio size={13} className="mr-1.5 inline text-muted" aria-label="Actualización en vivo" />
+            )}
             <b className="font-semibold">{alertas.length} alerta{alertas.length > 1 ? "s" : ""} temprana{alertas.length > 1 ? "s" : ""}</b>
             <span className="text-ink-2"> en {municipios.join(", ")}</span>
           </p>
@@ -69,7 +66,7 @@ export default function BannerAlertas() {
             {alertas.map((a, i) => (
               <li key={a.id} style={{ animationDelay: `${i * 60}ms` }} className="entrar flex flex-col gap-1 rounded-lg bg-surface/70 px-3 py-2 text-[13px] sm:flex-row sm:items-center sm:gap-3">
                 <span className="flex shrink-0 items-center gap-2">
-                  <NivelChip nivel={a.nivel_riesgo} />
+                  <NivelChip nivel={a.nivel} />
                   <span className="rounded-full border border-line px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted">
                     {a.origen === "OBSERVADO" ? "Observado" : "Predicho"}
                   </span>
