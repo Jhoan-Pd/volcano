@@ -6,19 +6,39 @@
 // Todo este archivo es un componente de SERVIDOR: no envía JavaScript propio al navegador.
 // ============================================================================
 import { ArrowRight, Cpu, Radio, Workflow } from "lucide-react";
+import { PHASE_PRODUCTION_BUILD } from "next/constants";
 import Link from "next/link";
 import { VolcanCard } from "@/components/dashboard/Paneles";
+import { AutoRevalidar } from "@/components/render/AutoRevalidar";
 import { RenderPanel } from "@/components/render/RenderPanel";
 import TituloRevelado from "@/components/TituloRevelado";
 import { Card, CardHeader, NivelChip } from "@/components/ui";
 import { fmtNum, NIVELES, rangoNivel } from "@/lib/formato";
 import { ORDEN, PATRONES } from "@/lib/patrones";
-import { cargarInicio } from "@/lib/tablero";
+import { ahoraIso } from "@/lib/servidor";
+import { cargarInicio, type DatosInicio } from "@/lib/tablero";
 
 export const revalidate = 3600;
 
 export default async function Inicio() {
-  const { municipios, porMunicipio, volcan, generadoEn } = await cargarInicio();
+  let datos: DatosInicio;
+  try {
+    datos = await cargarInicio();
+  } catch (e) {
+    // Al regenerar (ISR) un error conserva la versión anterior en caché: se relanza.
+    // Solo en el build (Render dormido) se genera una versión de respaldo que se auto-revalida.
+    if (process.env.NEXT_PHASE !== PHASE_PRODUCTION_BUILD) throw e;
+    return (
+      <div className="space-y-6">
+        <RenderPanel patron="ISR" generadoEn={ahoraIso()} ruta="/" detalles={[{ etiqueta: "Versión", valor: "Respaldo: la API no respondió" }]} />
+        <AutoRevalidar ruta="/" />
+        <h1 className="titulo-display text-5xl sm:text-6xl">Riesgo de brotes en la zona del Galeras</h1>
+        <p className="max-w-2xl text-ink-2">Los datos se están actualizando. Recarga en unos segundos o abre el{" "}
+          <Link href="/mapa" className="subrayar font-medium">mapa en vivo</Link>.</p>
+      </div>
+    );
+  }
+  const { municipios, porMunicipio, volcan, generadoEn } = datos;
   const poblacion = new Map(municipios.map((m) => [m.id, m.poblacion]));
   const filas = [...porMunicipio].sort((a, b) => rangoNivel(b.nivel_max) - rangoNivel(a.nivel_max)
     || (poblacion.get(b.municipio_id) ?? 0) - (poblacion.get(a.municipio_id) ?? 0));
