@@ -1,7 +1,9 @@
 """Esquemas de alertas tempranas."""
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+from app.models.enums import NivelRiesgo, OrigenAlerta
 
 
 class AlertaOut(BaseModel):
@@ -29,3 +31,12 @@ class ResultadoEvaluacion(BaseModel):
     cerradas: int
     activas: int
     correos_enviados: int
+
+
+class FiltrosAlertas(BaseModel):
+    q: str | None = Field(None, max_length=80, description="Texto en el mensaje, municipio o enfermedad")
+    municipio_id: int | None = None
+    enfermedad_id: int | None = None
+    nivel: NivelRiesgo | None = None
+    origen: OrigenAlerta | None = None
+    activa: bool | None = None

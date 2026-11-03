@@ -14,16 +14,16 @@ import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 
 from app.core.config import settings
 from app.core.epi import etiqueta
 from app.core.errors import NoEncontradoError
-from app.models import Alerta, Rol, Usuario
+from app.models import Alerta, Enfermedad, Municipio, Rol, Usuario
 from app.models.enums import NivelRiesgo, OrigenAlerta, RolNombre
 from app.notificaciones.correo import NotificadorCorreo, html_alertas, notificador_por_defecto
 from app.repositories.repos import EnfermedadRepository, MunicipioRepository
-from app.schemas.alerta import AlertaOut, ResultadoEvaluacion
+from app.schemas.alerta import AlertaOut, FiltrosAlertas, ResultadoEvaluacion
 from app.schemas.comun import Pagina
 from app.services.dashboard_service import DashboardService
 from app.services.prediccion_service import PrediccionService
@@ -199,6 +199,31 @@ class AlertaService:
         filas = self.db.scalars(stmt.order_by(Alerta.creado_en.desc(), Alerta.id.desc()).offset(offset).limit(limit))
         return Pagina[AlertaOut](items=[alerta_out(a) for a in filas], total=self.db.scalar(total) or 0,
                                  offset=offset, limit=limit)
+
+    def buscar(self, filtros: FiltrosAlertas, offset: int = 0, limit: int = 20) -> Pagina[AlertaOut]:
+        """Búsqueda pública del historial: texto libre (mensaje, municipio o enfermedad) y filtros.
+        Las más graves y recientes primero."""
+        condiciones = []
+        if filtros.q:
+            patron = f"%{filtros.q.strip()}%"
+            condiciones.append(or_(Alerta.mensaje.ilike(patron), Municipio.nombre.ilike(patron),
+                                   Enfermedad.nombre.ilike(patron), Enfermedad.codigo.ilike(patron)))
+        if filtros.municipio_id is not None:
+            condiciones.append(Alerta.municipio_id == filtros.municipio_id)
+        if filtros.enfermedad_id is not None:
+            condiciones.append(Alerta.enfermedad_id == filtros.enfermedad_id)
+        if filtros.nivel:
+            condiciones.append(Alerta.nivel_riesgo == filtros.nivel.value)
+        if filtros.origen:
+            condiciones.append(Alerta.origen == filtros.origen.value)
+        if filtros.activa is not None:
+            condiciones.append(Alerta.activa.is_(filtros.activa))
+        base = select(Alerta).join(Municipio, Alerta.municipio_id == Municipio.id) \
+            .join(Enfermedad, Alerta.enfermedad_id == Enfermedad.id).where(*condiciones)
+        total = self.db.scalar(select(func.count()).select_from(base.subquery())) or 0
+        filas = self.db.scalars(base.order_by(Alerta.anio.desc(), Alerta.semana_epi.desc(), Alerta.id.desc())
+                                .offset(offset).limit(limit))
+        return Pagina[AlertaOut](items=[alerta_out(a) for a in filas], total=total, offset=offset, limit=limit)
 
     def cerrar(self, alerta_id: int) -> AlertaOut:
         a = self.db.get(Alerta, alerta_id)

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import solo_admin
 from app.db.session import get_db
-from app.schemas.alerta import AlertaOut, ResultadoEvaluacion
+from app.schemas.alerta import AlertaOut, FiltrosAlertas, ResultadoEvaluacion
 from app.schemas.comun import Pagina
 from app.services.alerta_service import AlertaService
 
@@ -14,6 +14,14 @@ router = APIRouter(prefix="/alertas", tags=["Alertas"])
 @router.get("/activas", response_model=list[AlertaOut], summary="Alertas vigentes (riesgo alto o muy alto)")
 def activas(db: Session = Depends(get_db)):
     return AlertaService(db).activas()
+
+
+@router.get("/buscar", response_model=Pagina[AlertaOut], summary="Buscar en el historial de alertas (público)")
+def buscar(filtros: FiltrosAlertas = Depends(), offset: int = Query(0, ge=0), limit: int = Query(20, ge=1, le=100),
+           db: Session = Depends(get_db)):
+    """Datos agregados (el mismo contenido que el CSV público de alertas). Lo usa la página de
+    búsqueda del frontend, que se renderiza en el servidor en cada petición (SSR)."""
+    return AlertaService(db).buscar(filtros, offset, limit)
 
 
 @router.get("", response_model=Pagina[AlertaOut], dependencies=[Depends(solo_admin)],
