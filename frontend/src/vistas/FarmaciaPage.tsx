@@ -8,6 +8,7 @@ import { farmaciaApi } from "../api/servicios";
 import type { Categoria, Farmacia, MiFarmacia, ReporteSemanal } from "../api/tipos";
 import { Aviso, Boton, Card, CardHeader, claseInput, Etiqueta, Modal, SimuladoBadge, Spinner } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
+import CargaMasiva from "../components/farmacia/CargaMasiva";
 import TituloRevelado from "../components/TituloRevelado";
 import { CATEGORIAS, fmtFecha, fmtNum } from "../lib/formato";
 
@@ -203,6 +204,8 @@ export default function FarmaciaPage() {
           </Card>
         </div>
       )}
+
+      {info && <CargaMasiva farmaciaId={esAdmin ? farmaciaId : undefined} alTerminar={cargar} />}
 
       <Card>
         <CardHeader titulo="Historial de reportes" icono={<History size={17} />} subtitulo="Las semanas antiguas solo las puede corregir el administrador." />
