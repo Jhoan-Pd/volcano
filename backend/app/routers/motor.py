@@ -41,7 +41,8 @@ def evento_sse(datos: BaseModel | dict, evento: str | None = None) -> str:
 
 
 async def flujo_sse(fuente: AsyncIterator[BaseModel], evento) -> AsyncIterator[str]:
-    """Convierte un stream de gRPC en eventos SSE. Si pasan KEEPALIVE_S sin mensajes envía un
+    """Convierte un stream de gRPC en eventos SSE. Si el motor falla se envía un evento `fallo` (no
+    `error`, que en EventSource es el evento nativo de conexión). Si pasan KEEPALIVE_S sin mensajes envía un
     comentario (`: keepalive`) sin cancelar la lectura pendiente del stream."""
     yield "retry: 5000\n\n"  # el navegador reintenta a los 5 s si se cae la conexión
     siguiente = asyncio.ensure_future(anext(fuente))
@@ -56,7 +57,7 @@ async def flujo_sse(fuente: AsyncIterator[BaseModel], evento) -> AsyncIterator[s
             except StopAsyncIteration:
                 break
             except AppError as exc:
-                yield evento_sse({"mensaje": exc.mensaje, "codigo": exc.codigo}, "error")
+                yield evento_sse({"mensaje": exc.mensaje, "codigo": exc.codigo}, "fallo")
                 break
             yield evento_sse(item, evento(item))
             siguiente = asyncio.ensure_future(anext(fuente))
