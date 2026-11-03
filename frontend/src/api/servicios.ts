@@ -1,10 +1,12 @@
-import { api } from "./cliente";
+import { leerSSE } from "../lib/sse";
+import { api, API_V1, leerToken } from "./cliente";
 import type {
   ClimaActual, ClimaDiario, Pagina, ResumenDashboard, RiesgoMunicipio, SerieEnfermedad, Usuario,
   Municipio, Enfermedad, Categoria, Farmacia, MiFarmacia, ReporteSemanal,
   PrediccionEnfermedad, ExplicacionPrediccion, ModeloEntrenado, EstadoEntrenamiento,
   ResultadoTendencias, ResultadoSivigila, ResultadoImportacion, TipoImportacion, EstadoFuente,
-  Alerta, ResultadoEvaluacion,
+  Alerta, ResultadoEvaluacion, EstadoMotor, PronosticoMotor, ProgresoEntrenamiento, FilaCargaFarmacia,
+  ResumenCargaFarmacia,
 } from "./tipos";
 
 export const authApi = {
@@ -138,3 +140,24 @@ export const reporteApi = {
   prediccionesCsv: (municipioId?: number) => descargar("/reportes/predicciones.csv", { municipio_id: municipioId }, "predicciones.csv"),
   alertasCsv: (soloActivas = false) => descargar("/reportes/alertas.csv", { solo_activas: soloActivas }, "alertas.csv"),
 };
+
+/**
+ * Motor de predicción gRPC, a través del puente de la API:
+ *   unary → JSON · server streaming → SSE · client streaming → POST de filas · bidireccional → WebSocket
+ */
+export const motorApi = {
+  estado: async () => (await api.get<EstadoMotor>("/motor/estado")).data,
+  pronostico: async (municipioId: number, enfermedadId: number) =>
+    (await api.get<PronosticoMotor>("/motor/pronostico", { params: { municipio_id: municipioId, enfermedad_id: enfermedadId } })).data,
+  /** Server streaming: cada paso del entrenamiento llega como un evento SSE «progreso». */
+  entrenar: (enfermedadId?: number, signal?: AbortSignal) =>
+    leerSSE<ProgresoEntrenamiento>(`${API_V1}/motor/entrenar${enfermedadId ? `?enfermedad_id=${enfermedadId}` : ""}`, {
+      method: "POST", signal, headers: { Authorization: `Bearer ${leerToken() ?? ""}` },
+    }),
+  /** Client streaming: la API reenvía las filas al motor como un stream. */
+  cargarReportes: async (filas: FilaCargaFarmacia[]) =>
+    (await api.post<ResumenCargaFarmacia>("/motor/farmacia/carga", { filas }, { timeout: 180_000 })).data,
+};
+
+/** URL del WebSocket del simulador (bidireccional): http(s) → ws(s). */
+export const urlSimulador = () => `${API_V1.replace(/^http/, "ws")}/motor/simulador`;

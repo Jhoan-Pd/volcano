@@ -1,3 +1,5 @@
+"use client";
+
 import { Minus, TrendingDown, TrendingUp } from "lucide-react";
 import type { RiesgoEnfermedad } from "../../api/tipos";
 import { fmtNum, NIVELES } from "../../lib/formato";

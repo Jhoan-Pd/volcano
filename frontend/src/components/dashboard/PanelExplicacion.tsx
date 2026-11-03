@@ -1,17 +1,17 @@
+"use client";
+
 import { ArrowDownRight, ArrowUpRight, HelpCircle } from "lucide-react";
-import { dashboardApi } from "../../api/servicios";
+import type { ExplicacionPrediccion } from "../../api/tipos";
 import { fmtNum } from "../../lib/formato";
-import { useDatos } from "../../lib/useDatos";
-import { Card, CardHeader, NivelChip, Spinner } from "../ui";
+import { Card, CardHeader, NivelChip } from "../ui";
 
 /**
  * "¿Por qué este nivel de riesgo?" — explicabilidad local de la predicción.
  * Cada barra es cuántos casos aporta un grupo de variables frente a su valor típico en el
  * municipio (método de oclusión). Hacia la derecha empuja la predicción hacia arriba.
+ * La explicación llega ya calculada en las props (la página ISR la pidió en el servidor).
  */
-export default function PanelExplicacion({ municipioId, enfermedadId }: { municipioId: number; enfermedadId: number }) {
-  const { datos: exp, cargando } = useDatos(() => dashboardApi.explicacion(municipioId, enfermedadId),
-    [municipioId, enfermedadId]);
+export default function PanelExplicacion({ exp }: { exp: ExplicacionPrediccion | null }) {
 
   // Los grupos sin efecto apreciable y sin nada que contar se resumen en una línea
   const todos = exp?.factores ?? [];
@@ -26,7 +26,7 @@ export default function PanelExplicacion({ municipioId, enfermedadId }: { munici
         subtitulo={exp ? `${exp.enfermedad} · ${exp.municipio} · semana ${exp.etiqueta.replace(/^\d+-/, "")}` : "Explicación de la predicción"}
         accion={exp && <NivelChip nivel={exp.nivel} />} />
       <div className="px-5 pb-5">
-        {cargando ? <Spinner /> : !exp ? (
+        {!exp ? (
           <p className="py-6 text-center text-sm text-muted">Aún no hay predicciones para explicar. Un administrador debe entrenar el modelo.</p>
         ) : (
           <>

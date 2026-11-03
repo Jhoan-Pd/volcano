@@ -1,3 +1,5 @@
+"use client";
+
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { guardarToken, leerToken } from "../api/cliente";
 import { authApi } from "../api/servicios";

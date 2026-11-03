@@ -1,3 +1,5 @@
+"use client";
+
 import { CircleAlert, CircleCheck, LoaderCircle, OctagonAlert, TriangleAlert, X } from "lucide-react";
 import { useEffect, type ButtonHTMLAttributes, type ReactNode } from "react";
 import type { Nivel } from "../api/tipos";

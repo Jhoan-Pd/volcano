@@ -1,6 +1,8 @@
+"use client";
+
 import { LogIn, UserPlus } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
-import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { useRouter, useSearchParams } from "next/navigation";
 import { mensajeError } from "../api/cliente";
 import { authApi, catalogoApi } from "../api/servicios";
 import type { Municipio } from "../api/tipos";
@@ -10,8 +12,10 @@ import { useAuth } from "../context/AuthContext";
 
 export default function LoginPage() {
   const { login, usuario } = useAuth();
-  const navigate = useNavigate();
-  const desde = (useLocation().state as { desde?: string } | null)?.desde;
+  const router = useRouter();
+  // Solo rutas internas: evita redirecciones abiertas (?desde=https://otro-sitio)
+  const parametro = useSearchParams().get("desde");
+  const desde = parametro?.startsWith("/") && !parametro.startsWith("//") ? parametro : undefined;
   const [modo, setModo] = useState<"login" | "registro">("login");
   const [nombre, setNombre] = useState("");
   const [email, setEmail] = useState("");
@@ -30,7 +34,11 @@ export default function LoginPage() {
 
   // Destino según el rol (si venía de una ruta protegida, se regresa allí)
   const destino = (rol: string) => desde ?? (rol === "ADMIN" ? "/admin" : rol === "FARMACIA" ? "/farmacia" : "/");
-  if (usuario) return <Navigate to={destino(usuario.rol)} replace />;
+  useEffect(() => {
+    if (usuario) router.replace(destino(usuario.rol));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al cambiar la sesión
+  }, [usuario]);
+  if (usuario) return null;
 
   async function enviar(e: FormEvent) {
     e.preventDefault();
@@ -42,7 +50,7 @@ export default function LoginPage() {
         setModo("login");
       } else {
         const u = await login(email, password);
-        navigate(destino(u.rol), { replace: true });
+        router.replace(destino(u.rol));
       }
     } catch (err) {
       setError(mensajeError(err));

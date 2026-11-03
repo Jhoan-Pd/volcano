@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useRef, useState } from "react";
 
 const salida = (t: number) => 1 - Math.pow(1 - t, 5); // ease-out quint

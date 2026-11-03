@@ -86,7 +86,7 @@ def test_alertas_en_vivo_responde_sse(client, motor_apagado):
     with client.stream("GET", f"{URL}/alertas/eventos") as r:
         assert r.headers["content-type"].startswith("text/event-stream")
         eventos = _eventos_sse(r.iter_lines())
-    assert eventos == [("error", {"mensaje": eventos[0][1]["mensaje"], "codigo": "NO_DISPONIBLE"})]
+    assert eventos == [("fallo", {"mensaje": eventos[0][1]["mensaje"], "codigo": "NO_DISPONIBLE"})]
 
 
 def test_carga_de_reportes_por_client_streaming(client, motor_api, farmacia_headers, ciudadano_headers):

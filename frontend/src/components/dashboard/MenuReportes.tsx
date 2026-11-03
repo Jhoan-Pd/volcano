@@ -1,3 +1,5 @@
+"use client";
+
 import { Download, FileSpreadsheet, FileText, LoaderCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { mensajeError } from "../../api/cliente";

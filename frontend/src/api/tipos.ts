@@ -396,3 +396,117 @@ export interface ResultadoEvaluacion {
   activas: number;
   correos_enviados: number;
 }
+
+// ── Motor de predicción gRPC (a través del puente REST/SSE/WebSocket) ───────────
+export interface EstadoMotor {
+  disponible: boolean;
+  version: string | null;
+  modelos_en_memoria: number;
+  entrenando: boolean;
+  activo_desde_s: number | null;
+  rpcs_atendidas: number;
+  latencia_ms: number | null;
+  mensaje: string | null;
+}
+
+export interface PuntoMotor {
+  anio: number;
+  semana_epi: number;
+  etiqueta: string;
+  horizonte: number;
+  casos_esperados: number;
+  limite_inferior: number;
+  limite_superior: number;
+  nivel: Nivel | null;
+  umbrales: { amarillo: number; naranja: number; rojo: number } | null;
+}
+
+export interface PronosticoMotor {
+  municipio_id: number;
+  municipio: string;
+  enfermedad_id: number;
+  enfermedad: string;
+  algoritmo: string;
+  modelo_id: number;
+  semana_base: string;
+  nivel_max: Nivel | null;
+  puntos: PuntoMotor[];
+  duracion_ms: number;
+  desde_cache: boolean;
+}
+
+export type EtapaEntrenamiento =
+  | "INICIO" | "DATASET" | "CANDIDATO" | "MODELO_LISTO" | "PREDICCIONES" | "ALERTAS" | "AVISO" | "FIN" | "ERROR";
+
+export interface ProgresoEntrenamiento {
+  etapa: EtapaEntrenamiento;
+  mensaje: string;
+  porcentaje: number;
+  enfermedad: string | null;
+  algoritmo: string | null;
+  mae: number | null;
+  mae_base: number | null;
+}
+
+/** Alerta tal como llega por el stream SSE del motor (SeguirAlertas). */
+export interface AlertaMotor {
+  id: number;
+  municipio_id: number;
+  municipio: string;
+  enfermedad_id: number;
+  enfermedad: string;
+  semana: string;
+  nivel: Nivel | null;
+  origen: "OBSERVADO" | "PREDICHO";
+  mensaje: string;
+}
+
+export interface EventoAlertaMotor {
+  tipo: "ACTIVA" | "NUEVA" | "ACTUALIZADA" | "CERRADA";
+  momento: string;
+  alerta: AlertaMotor;
+}
+
+export interface FilaCargaFarmacia {
+  fila: number;
+  farmacia_id?: number | null;
+  anio: number;
+  semana_epi: number;
+  categoria: string;
+  unidades: number;
+}
+
+export interface ResumenCargaFarmacia {
+  filas_recibidas: number;
+  filas_rechazadas: number;
+  semanas_creadas: number;
+  semanas_actualizadas: number;
+  semanas_rechazadas: number;
+  errores: { fila: number; mensaje: string }[];
+  duracion_ms: number;
+}
+
+export interface Escenario {
+  id: string;
+  municipio_id: number;
+  enfermedad_id: number;
+  delta_temperatura_c: number;
+  cambio_lluvia_pct: number;
+  cambio_busquedas_pct: number;
+  cambio_farmacias_pct: number;
+  ceniza: boolean;
+}
+
+export interface ResultadoEscenario {
+  id: string | null;
+  municipio_id?: number;
+  enfermedad_id?: number;
+  base?: PuntoMotor[];
+  escenario?: PuntoMotor[];
+  nivel_max?: Nivel | null;
+  variacion_pct?: number;
+  resumen?: string;
+  duracion_ms?: number;
+  error: string | null;
+  fatal?: boolean;
+}

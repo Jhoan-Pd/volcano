@@ -1,3 +1,5 @@
+"use client";
+
 import { Area, CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { PrediccionEnfermedad, PuntoSerie } from "../../api/tipos";
 import { fmtFecha, fmtNum, NIVELES, ORDEN_NIVELES } from "../../lib/formato";

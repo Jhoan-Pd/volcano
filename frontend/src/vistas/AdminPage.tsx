@@ -1,3 +1,5 @@
+"use client";
+
 import { BellRing, BrainCircuit, Bug, Database, MapPin, Mountain, Pill, Users } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { catalogoApi } from "../api/servicios";

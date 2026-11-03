@@ -32,6 +32,12 @@
   --st-naranja-ink: #9e3f17;
   --st-rojo-ink: #a52222;
   --band-op: 0.16;
+
+  /* Patrones de rendering (panel de cada página) */
+  --pat-ssg: #2a78d6;
+  --pat-isr: #0f8a6a;
+  --pat-ssr: #c2571f;
+  --pat-csr: #7b4bd1;
 }
 
 .dark {
@@ -55,6 +61,10 @@
   --st-naranja-ink: #f3a383;
   --st-rojo-ink: #ef7d7d;
   --band-op: 0.2;
+  --pat-ssg: #5aa0f0;
+  --pat-isr: #3cc79f;
+  --pat-ssr: #f08a52;
+  --pat-csr: #a684ee;
 }
 
 @theme inline {

@@ -1,3 +1,5 @@
+"use client";
+
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { ClimaDiario } from "../../api/tipos";
 import { fmtDia, fmtFecha, fmtNum } from "../../lib/formato";

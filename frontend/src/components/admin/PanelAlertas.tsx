@@ -1,3 +1,5 @@
+"use client";
+
 import { BellRing, ChevronLeft, ChevronRight, Download, MailCheck, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { mensajeError } from "../../api/cliente";
