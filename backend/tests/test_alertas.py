@@ -133,3 +133,24 @@ def test_ciudadanos_reciben_solo_las_alertas_de_su_municipio(db, brote_dengue, m
     assert all("Pasto" not in e[2] or e[0] != ["vecina@consaca.co"] for e in correo.enviados)
     db.refresh(a)
     assert a.notificada_email
+
+
+def test_buscar_alertas_publico_con_filtros(client, db):
+    consaca = db.query(Municipio).filter_by(codigo_divipola="52207").one()
+    dengue = db.query(Enfermedad).filter_by(codigo="DENGUE").one()
+    for semana, nivel, activa in ((40, "ROJO", True), (41, "NARANJA", False)):
+        db.add(Alerta(municipio_id=consaca.id, enfermedad_id=dengue.id, anio=2019, semana_epi=semana,
+                      nivel_riesgo=nivel, origen="OBSERVADO", mensaje=f"Búsqueda zancudo S{semana}", activa=activa))
+    db.commit()
+    try:
+        url = "/api/v1/alertas/buscar"
+        r = client.get(url, params={"q": "zancudo"})  # sin token: es público
+        assert r.status_code == 200, r.text
+        assert r.json()["total"] == 2 and r.json()["items"][0]["semana_epi"] == 41  # más reciente primero
+        assert client.get(url, params={"q": "zancudo", "nivel": "ROJO"}).json()["total"] == 1
+        assert client.get(url, params={"q": "zancudo", "activa": False}).json()["items"][0]["nivel_riesgo"] == "NARANJA"
+        assert client.get(url, params={"q": "consac", "municipio_id": consaca.id}).json()["total"] >= 2
+        assert client.get(url, params={"nivel": "AZUL"}).status_code == 422
+    finally:
+        db.query(Alerta).filter(Alerta.anio == 2019, Alerta.mensaje.like("Búsqueda zancudo%")).delete()
+        db.commit()

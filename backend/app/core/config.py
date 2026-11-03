@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     CRON_SECRET: str = "cambia-este-secreto-del-cron"
 
     # CORS: lista separada por comas + regex opcional (p. ej. previews de Vercel)
-    CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
+    CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173"
     CORS_ORIGIN_REGEX: str | None = None
 
     # Usuario administrador inicial que crea el seed
@@ -76,7 +76,9 @@ class Settings(BaseSettings):
     ALERTAS_EMAIL_DESTINO: str = ""  # correos separados por coma (secretaría de salud, administradores)
     # Enviar también a los ciudadanos registrados las alertas de SU municipio (un correo por persona)
     ALERTAS_A_CIUDADANOS: bool = True
-    FRONTEND_URL: str = "http://localhost:5173"
+    FRONTEND_URL: str = "http://localhost:3000"
+    # Secreto compartido con Vercel para la revalidación bajo demanda de las páginas ISR (opcional)
+    REVALIDAR_SECRET: str | None = None
 
     @field_validator("DATABASE_URL")
     @classmethod
