@@ -45,5 +45,5 @@ jobs:
       - run: npm ci
       - name: Tipos (tsc estricto)
         run: npm run typecheck
-      - name: Build de Next.js (sin API: las páginas ISR usan su versión de respaldo)
+      - name: "Build de Next.js (sin API: las páginas ISR usan su versión de respaldo)"
         run: npm run build
