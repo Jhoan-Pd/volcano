@@ -1,0 +1,29 @@
+# Mantiene despierto el backend del plan gratis de Render, que se duerme tras 15 min sin tráfico
+# entrante y tarda cerca de un minuto en despertar (la primera visita parecía "colgada").
+#
+# Render da 750 horas gratis al mes por cuenta: alcanzan para UN servicio activo todo el mes.
+# El ping va a /health, que también consulta la base de datos.
+# GitHub puede retrasar los cron unos minutos; por eso se programa cada 10 minutos.
+name: Mantener activo
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping al backend
+        env:
+          # Secreto opcional; si no existe se usa la URL pública del despliegue
+          API_URL: ${{ secrets.API_URL || 'https://predictor-brotes-api.onrender.com' }}
+        run: |
+          for i in 1 2 3 4 5 6; do
+            if curl -fsS --max-time 30 "$API_URL/health"; then echo; echo "Backend activo"; exit 0; fi
+            echo "Intento $i: despertando el backend, espero 20 s"
+            sleep 20
+          done
+          echo "::warning::El backend no respondió en 3 minutos"
