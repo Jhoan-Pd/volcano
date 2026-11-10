@@ -2,7 +2,7 @@
 
 import { Radio, WifiOff } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { catalogoApi, dashboardApi } from "../api/servicios";
 import MapaRiesgo from "../components/dashboard/MapaDinamico";
 import type { ModoMapa } from "../components/dashboard/modoMapa";
@@ -30,7 +30,7 @@ const TIPO: Record<string, string> = { NUEVA: "Nueva", ACTUALIZADA: "Actualizada
  * Mapa de riesgo 100 % en el navegador (CSR): Leaflet, datos por fetch y alertas por SSE.
  * Cuando el stream avisa un cambio en las alertas se vuelve a pedir el riesgo por municipio.
  */
-export default function MapaEnVivo() {
+export default function MapaEnVivo({ encabezado }: { encabezado?: ReactNode }) {
   const router = useRouter();
   const [modo, setModo] = useState<ModoMapa>("actual");
   const [codigo, setCodigo] = useState("");
@@ -54,6 +54,7 @@ export default function MapaEnVivo() {
           { etiqueta: "Alertas", valor: CONEXION[conexion] },
           { etiqueta: "Último evento del stream", valor: actualizadoEn ? new Date(actualizadoEn).toLocaleTimeString("es-CO") : "—" },
         ]} />
+      {encabezado}
 
       {riesgo.error && <Aviso tipo="error">{riesgo.error}</Aviso>}
 
