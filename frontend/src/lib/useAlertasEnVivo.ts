@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { API_V1 } from "@/api/cliente";
 import { alertaApi } from "@/api/servicios";
 import type { Alerta, AlertaMotor, EventoAlertaMotor, Nivel } from "@/api/tipos";
+import { EVENTO_LISTO } from "./estadoServidor";
 
 /** Alerta en la forma común a las dos fuentes (REST y stream del motor). */
 export interface AlertaVista {
@@ -47,6 +48,14 @@ export function useAlertasEnVivo(municipioId?: number) {
   const [modo, setModo] = useState<ModoConexion>("conectando");
   const [cambios, setCambios] = useState<CambioAlerta[]>([]);
   const [actualizadoEn, setActualizadoEn] = useState<string | null>(null);
+
+  // Si el servidor estaba dormido, al despertar se vuelve a abrir el stream en vivo
+  const [reintento, setReintento] = useState(0);
+  useEffect(() => {
+    const otraVez = () => setReintento((n) => n + 1);
+    window.addEventListener(EVENTO_LISTO, otraVez);
+    return () => window.removeEventListener(EVENTO_LISTO, otraVez);
+  }, []);
 
   useEffect(() => {
     let vigente = true;
@@ -102,7 +111,7 @@ export function useAlertasEnVivo(municipioId?: number) {
       fuente.close();
       window.clearInterval(intervalo);
     };
-  }, [municipioId]);
+  }, [municipioId, reintento]);
 
   return { alertas: [...alertas.values()], modo, cambios, actualizadoEn };
 }
