@@ -12,3 +12,9 @@ export function nivelDe(f: RiesgoMunicipio, modo: ModoMapa, codigo: string): Niv
   return f.nivel_max;
 }
 
+
+/** Props comunes de los dos mapas (Google Maps y Leaflet). */
+export interface PropsMapa {
+  filas: RiesgoMunicipio[]; modo: ModoMapa; codigo: string; enfermedades: { codigo: string; nombre: string }[];
+  seleccionado: number | null; onSeleccionar: (id: number) => void;
+}

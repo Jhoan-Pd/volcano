@@ -3,11 +3,10 @@
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { useMemo } from "react";
-import { Circle, CircleMarker, MapContainer, Marker, Popup, TileLayer, Tooltip } from "react-leaflet";
-import type { RiesgoMunicipio } from "../../api/tipos";
+import { Circle, CircleMarker, LayersControl, MapContainer, Marker, Popup, TileLayer, Tooltip } from "react-leaflet";
 import { useTema } from "../../context/ThemeContext";
 import { NIVELES, ORDEN_NIVELES, rangoNivel } from "../../lib/formato";
-import { nivelDe, type ModoMapa } from "./modoMapa";
+import { nivelDe, type PropsMapa } from "./modoMapa";
 
 // Cráter del Volcán Galeras (Servicio Geológico Colombiano)
 const GALERAS: [number, number] = [1.2208, -77.3592];
@@ -21,10 +20,7 @@ const iconoVolcan = L.divIcon({
   iconAnchor: [14, 22],
 });
 
-export default function MapaRiesgo({ filas, modo, codigo, enfermedades, seleccionado, onSeleccionar }: {
-  filas: RiesgoMunicipio[]; modo: ModoMapa; codigo: string; enfermedades: { codigo: string; nombre: string }[];
-  seleccionado: number | null; onSeleccionar: (id: number) => void;
-}) {
+export default function MapaRiesgo({ filas, modo, codigo, enfermedades, seleccionado, onSeleccionar }: PropsMapa) {
   const { tema } = useTema();
   const limites = useMemo(() => L.latLngBounds([...filas.map((f) => [f.latitud, f.longitud] as [number, number]), GALERAS]).pad(0.25), [filas]);
   // Los municipios con más riesgo se dibujan encima
@@ -34,9 +30,22 @@ export default function MapaRiesgo({ filas, modo, codigo, enfermedades, seleccio
     <div className="relative isolate h-80 overflow-hidden rounded-lg border border-line sm:h-[26rem]">
       <MapContainer bounds={limites} scrollWheelZoom={false} className="h-full w-full" style={{ background: "var(--surface-2)" }}
         attributionControl>
-        <TileLayer key={tema}
-          url={`https://{s}.basemaps.cartocdn.com/${tema === "oscuro" ? "dark_all" : "light_all"}/{z}/{x}/{y}{r}.png`}
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>' />
+        {/* Capas sin clave: el relieve deja ver el cono del Galeras y los valles de los municipios */}
+        <LayersControl position="topright">
+          <LayersControl.BaseLayer checked name="Relieve">
+            <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}"
+              attribution="Tiles &copy; Esri — Esri, HERE, Garmin, USGS, NGA" maxZoom={18} />
+          </LayersControl.BaseLayer>
+          <LayersControl.BaseLayer name="Satélite">
+            <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+              attribution="Tiles &copy; Esri — Maxar, Earthstar Geographics" maxZoom={18} />
+          </LayersControl.BaseLayer>
+          <LayersControl.BaseLayer name={tema === "oscuro" ? "Mapa oscuro" : "Mapa claro"}>
+            <TileLayer key={tema}
+              url={`https://{s}.basemaps.cartocdn.com/${tema === "oscuro" ? "dark_all" : "light_all"}/{z}/{x}/{y}{r}.png`}
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>' />
+          </LayersControl.BaseLayer>
+        </LayersControl>
         <Circle center={GALERAS} radius={15000} interactive={false}
           pathOptions={{ color: "#b8692a", weight: 1, dashArray: "4 6", fillOpacity: 0.04 }} />
         <Marker position={GALERAS} icon={iconoVolcan}>

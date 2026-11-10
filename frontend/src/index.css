@@ -141,6 +141,10 @@ body { font-size: 15px; letter-spacing: 0.005em; }
   text-shadow: 0 0 3px var(--surface), 0 0 3px var(--surface), 0 0 3px var(--surface);
 }
 .leaflet-tooltip.mapa-etiqueta::before { display: none; }
+/* Sobre el relieve o el satélite el nombre del municipio necesita un halo para leerse */
+.leaflet-tooltip.mapa-etiqueta { text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 4px #fff; color: #111; }
+.mapa-google-etiqueta { text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 4px #fff; }
+.dark .mapa-google-etiqueta { text-shadow: 0 0 3px #000, 0 0 3px #000, 0 0 4px #000; }
 .leaflet-tooltip, .leaflet-popup-content-wrapper, .leaflet-popup-tip {
   background: var(--surface); color: var(--ink); border-color: var(--line);
 }
