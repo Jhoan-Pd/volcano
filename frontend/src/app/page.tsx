@@ -5,7 +5,8 @@
 // desde la CDN y se regenera como máximo cada hora o cuando el backend avisa (/api/revalidar).
 // Todo este archivo es un componente de SERVIDOR: no envía JavaScript propio al navegador.
 // ============================================================================
-import { ArrowRight, Cpu, Radio, Workflow } from "lucide-react";
+import { ArrowRight, CalendarDays, Cpu, Radio, Siren, TrendingUp, Users, Workflow } from "lucide-react";
+import type { ReactNode } from "react";
 import { PHASE_PRODUCTION_BUILD } from "next/constants";
 import Link from "next/link";
 import { VolcanCard } from "@/components/dashboard/Paneles";
@@ -16,9 +17,26 @@ import { Card, CardHeader, NivelChip } from "@/components/ui";
 import { fmtNum, NIVELES, rangoNivel } from "@/lib/formato";
 import { ORDEN, PATRONES } from "@/lib/patrones";
 import { ahoraIso } from "@/lib/servidor";
+import type { Nivel } from "@/api/tipos";
 import { cargarInicio, type DatosInicio } from "@/lib/tablero";
 
 export const revalidate = 3600;
+
+/** Nombre corto de cada enfermedad para las fichas de municipio. */
+const ENFERMEDAD_CORTA: Record<string, string> = { IRA: "IRA", EDA: "EDA", DENGUE: "Dengue", RESP_CENIZA: "Ceniza" };
+const esAlta = (n: Nivel | null | undefined) => n != null && rangoNivel(n) >= 2;
+
+function Indicador({ icono, valor, etiqueta, detalle, destacado = false }: {
+  icono: ReactNode; valor: string; etiqueta: string; detalle?: string; destacado?: boolean;
+}) {
+  return (
+    <div className={`rounded-lg border p-4 ${destacado ? "border-[color-mix(in_srgb,var(--st-naranja)_45%,transparent)] bg-[color-mix(in_srgb,var(--st-naranja)_7%,var(--surface))]" : "border-line bg-surface"}`}>
+      <p className="flex items-center gap-1.5 text-xs font-medium text-muted">{icono}{etiqueta}</p>
+      <p className="cifra mt-1.5 text-3xl leading-none text-ink">{valor}</p>
+      {detalle && <p className="mt-1.5 text-xs text-ink-2">{detalle}</p>}
+    </div>
+  );
+}
 
 export default async function Inicio() {
   let datos: DatosInicio;
@@ -38,11 +56,14 @@ export default async function Inicio() {
       </div>
     );
   }
-  const { municipios, porMunicipio, volcan, generadoEn } = datos;
+  const { municipios, porMunicipio, volcan, alertas, semanaReferencia, generadoEn } = datos;
   const poblacion = new Map(municipios.map((m) => [m.id, m.poblacion]));
   const filas = [...porMunicipio].sort((a, b) => rangoNivel(b.nivel_max) - rangoNivel(a.nivel_max)
     || (poblacion.get(b.municipio_id) ?? 0) - (poblacion.get(a.municipio_id) ?? 0));
-  const enAlerta = filas.filter((f) => rangoNivel(f.nivel_max) >= 2 || rangoNivel(f.nivel_max_predicho ?? "VERDE") >= 2);
+  const enAlerta = filas.filter((f) => esAlta(f.nivel_max) || esAlta(f.nivel_max_predicho));
+  const altosHoy = filas.filter((f) => esAlta(f.nivel_max));
+  const altosPredichos = filas.filter((f) => esAlta(f.nivel_max_predicho));
+  const poblacionTotal = municipios.reduce((suma, m) => suma + m.poblacion, 0);
 
   return (
     <div className="space-y-8">
@@ -62,6 +83,19 @@ export default async function Inicio() {
         </p>
       </section>
 
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Resumen de la semana">
+        <Indicador icono={<CalendarDays size={14} aria-hidden />} etiqueta="Semana epidemiológica"
+          valor={semanaReferencia ? semanaReferencia.replace("-S", " · S") : "—"} detalle="Última semana con casos" />
+        <Indicador icono={<Users size={14} aria-hidden />} etiqueta="Municipios vigilados" valor={String(filas.length)}
+          detalle={`${fmtNum(poblacionTotal)} habitantes`} />
+        <Indicador icono={<Siren size={14} aria-hidden />} etiqueta="Alertas activas" valor={String(alertas.length)}
+          detalle={altosHoy.length ? `Riesgo alto hoy en ${altosHoy.map((f) => f.municipio).join(", ")}` : "Ningún municipio en riesgo alto hoy"}
+          destacado={alertas.length > 0} />
+        <Indicador icono={<TrendingUp size={14} aria-hidden />} etiqueta="Próximas 4 semanas" valor={String(altosPredichos.length)}
+          detalle={altosPredichos.length ? "municipio(s) con riesgo alto predicho" : "Sin riesgo alto predicho"}
+          destacado={altosPredichos.length > 0} />
+      </section>
+
       <div className="grid gap-6 lg:grid-cols-3">
         <section className="grid gap-4 sm:grid-cols-2 lg:col-span-2" aria-label="Municipios">
           {filas.map((f) => (
@@ -79,9 +113,15 @@ export default async function Inicio() {
                 <span className="text-muted">Esta semana</span> <NivelChip nivel={f.nivel_max} />
                 {f.nivel_max_predicho && <><span className="text-muted">· 4 semanas</span> <NivelChip nivel={f.nivel_max_predicho} /></>}
               </div>
-              <p className="mt-2 text-[11px] text-muted">
-                {Object.entries(f.detalle).map(([codigo, nivel]) => `${codigo}: ${NIVELES[nivel].etiqueta.toLowerCase()}`).join(" · ")}
-              </p>
+              <ul className="mt-3 flex flex-wrap gap-x-3 gap-y-1 border-t border-line pt-2.5 text-[11px] text-ink-2" aria-label="Riesgo por enfermedad esta semana">
+                {Object.entries(f.detalle).map(([codigo, nivel]) => (
+                  <li key={codigo} className="inline-flex items-center gap-1" title={`${codigo}: ${NIVELES[nivel].etiqueta}`}>
+                    <span className="h-2 w-2 rounded-full" style={{ background: NIVELES[nivel].color }} aria-hidden />
+                    {ENFERMEDAD_CORTA[codigo] ?? codigo}
+                    <span className="sr-only">: {NIVELES[nivel].etiqueta}</span>
+                  </li>
+                ))}
+              </ul>
             </Link>
           ))}
         </section>

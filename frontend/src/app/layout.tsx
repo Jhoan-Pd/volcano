@@ -11,6 +11,7 @@ import "@fontsource-variable/bricolage-grotesque/standard.css"; // títulos (eje
 import "@fontsource-variable/hanken-grotesk"; // texto
 import "@fontsource-variable/geist"; // cifras grandes
 import "@/index.css";
+import AvisoServidor from "@/components/AvisoServidor";
 import BannerAlertas from "@/components/BannerAlertas";
 import Cabecera from "@/components/Cabecera";
 import Proveedores from "./proveedores";
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <Proveedores>
           <div className="flex min-h-screen flex-col">
             <Cabecera />
+            <AvisoServidor />
             <BannerAlertas />
             <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6">{children}</main>
             <footer className="border-t border-line">

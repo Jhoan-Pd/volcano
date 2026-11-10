@@ -6,7 +6,7 @@
  * no hace peticiones). Las peticiones salen en paralelo con Promise.all.
  */
 import type {
-  ClimaActual, ClimaDiario, EstadoVolcan, ExplicacionPrediccion, Municipio, Pagina, PrediccionEnfermedad,
+  Alerta, ClimaActual, ClimaDiario, EstadoVolcan, ExplicacionPrediccion, Municipio, Pagina, PrediccionEnfermedad,
   ResumenDashboard, RiesgoMunicipio, SerieEnfermedad,
 } from "@/api/tipos";
 import { REVALIDAR_TABLEROS } from "./patrones";
@@ -69,14 +69,19 @@ export interface DatosInicio {
   municipios: Municipio[];
   porMunicipio: RiesgoMunicipio[];
   volcan: EstadoVolcan;
+  alertas: Alerta[];
+  semanaReferencia: string | null;
   generadoEn: string;
 }
 
 export async function cargarInicio(): Promise<DatosInicio> {
-  const [municipios, porMunicipio, volcan] = await Promise.all([
+  const [municipios, porMunicipio, volcan, alertas, resumen] = await Promise.all([
     municipiosActivos(),
     pedir<RiesgoMunicipio[]>("/dashboard/riesgo-municipios", {}, isr()),
     pedir<EstadoVolcan>("/dashboard/volcan", {}, isr()),
+    pedirOpcional<Alerta[]>("/alertas/activas", {}, isr()),
+    pedirOpcional<ResumenDashboard>("/dashboard/resumen", {}, isr()),
   ]);
-  return { municipios, porMunicipio, volcan, generadoEn: ahoraIso() };
+  return { municipios, porMunicipio, volcan, alertas: alertas ?? [], semanaReferencia: resumen?.semana_referencia ?? null,
+    generadoEn: ahoraIso() };
 }

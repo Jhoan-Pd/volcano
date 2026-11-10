@@ -3,6 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { urlSimulador } from "@/api/servicios";
 import type { Escenario, ResultadoEscenario } from "@/api/tipos";
+import { EVENTO_LISTO, reportarFalloDeRed } from "@/lib/estadoServidor";
+
+const MAX_REINTENTOS = 8;
+const ESPERA_MAX_MS = 15_000;
+
+/** Espera antes del reintento n (backoff exponencial con algo de azar para no reconectar todos a la vez). */
+const espera = (n: number) => Math.min(ESPERA_MAX_MS, 1000 * 2 ** n) * (0.75 + Math.random() * 0.5);
 
 export type EstadoSocket = "conectando" | "abierto" | "cerrado";
 
@@ -11,6 +18,9 @@ export type EstadoSocket = "conectando" | "abierto" | "cerrado";
  * de gRPC (SimularEscenarios). Cada cambio de un control envía un escenario y el resultado
  * llega en cuanto el motor lo calcula; no hay que esperar una respuesta para enviar el
  * siguiente. Se mide la ida y vuelta de cada mensaje y se ignoran las respuestas viejas.
+ *
+ * Si la conexión se cae (el servidor se durmió, se redesplegó o el celular cambió de red) se
+ * reconecta sola con backoff exponencial y, al volver, la vista reenvía el escenario actual.
  */
 export function useSimulador() {
   const ws = useRef<WebSocket | null>(null);
@@ -23,14 +33,26 @@ export function useSimulador() {
   const [cuenta, setCuenta] = useState({ enviados: 0, recibidos: 0 });
   const [error, setError] = useState<string | null>(null);
   const [intento, setIntento] = useState(0);
+  const fallos = useRef(0);
 
   useEffect(() => {
     const socket = new WebSocket(urlSimulador());
     ws.current = socket;
+    let cerradoPorNosotros = false;
+    let temporizador: ReturnType<typeof setTimeout> | undefined;
     setEstado("conectando");
-    socket.onopen = () => { setEstado("abierto"); setError(null); };
-    socket.onclose = () => setEstado("cerrado");
-    socket.onerror = () => setError("No se pudo conectar con el simulador (WebSocket).");
+    socket.onopen = () => { fallos.current = 0; setEstado("abierto"); setError(null); };
+    socket.onclose = () => {
+      setEstado("cerrado");
+      if (cerradoPorNosotros) return;
+      reportarFalloDeRed();
+      if (fallos.current < MAX_REINTENTOS) {
+        temporizador = setTimeout(() => setIntento((n) => n + 1), espera(fallos.current));
+        fallos.current += 1;
+      } else {
+        setError("No se pudo conectar con el simulador (WebSocket).");
+      }
+    };
     socket.onmessage = (e) => {
       const r = JSON.parse(e.data as string) as ResultadoEscenario;
       setCuenta((c) => ({ ...c, recibidos: c.recibidos + 1 }));
@@ -42,8 +64,15 @@ export function useSimulador() {
       setResultado(r);
       setRecibidoEn(new Date().toISOString());
     };
-    return () => socket.close();
+    return () => { cerradoPorNosotros = true; clearTimeout(temporizador); socket.close(); };
   }, [intento]);
+
+  // Cuando la API termina de despertar se reconecta de inmediato, sin esperar el backoff
+  useEffect(() => {
+    const ahora = () => { fallos.current = 0; setIntento((n) => n + 1); };
+    window.addEventListener(EVENTO_LISTO, ahora);
+    return () => window.removeEventListener(EVENTO_LISTO, ahora);
+  }, []);
 
   const enviar = useCallback((escenario: Omit<Escenario, "id">) => {
     const socket = ws.current;
@@ -56,7 +85,7 @@ export function useSimulador() {
     return true;
   }, []);
 
-  const reconectar = useCallback(() => setIntento((n) => n + 1), []);
+  const reconectar = useCallback(() => { fallos.current = 0; setError(null); setIntento((n) => n + 1); }, []);
 
   return { estado, resultado, recibidoEn, idaVueltaMs, cuenta, error, enviar, reconectar };
 }

@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type DependencyList } from "react";
+import axios from "axios";
 import { mensajeError } from "../api/cliente";
+import { EVENTO_LISTO, reportarFalloDeRed } from "./estadoServidor";
 
 export interface Datos<T> {
   datos: T | null;
@@ -36,11 +38,24 @@ export function useDatos<T>(cargar: (() => Promise<T>) | null, deps: DependencyL
     setEstado((e) => ({ datos: esRecarga ? e.datos : null, error: null, cargando: true }));
     cargar()
       .then((datos) => { if (vigente) setEstado({ datos, error: null, cargando: false }); })
-      .catch((e) => { if (vigente) setEstado({ datos: null, error: mensajeError(e), cargando: false }); });
+      .catch((e) => {
+        // Sin respuesta (red o tiempo agotado): probablemente la API está despertando
+        if (axios.isAxiosError(e) && !e.response) reportarFalloDeRed();
+        if (vigente) setEstado({ datos: null, error: mensajeError(e), cargando: false });
+      });
     return () => { vigente = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- las dependencias las define quien llama
   }, [...deps, version]);
 
   const recargar = useCallback(() => setVersion((v) => v + 1), []);
+
+  // Si la carga falló mientras el servidor dormía, se reintenta sola apenas despierta
+  const hayError = estado.error != null;
+  useEffect(() => {
+    if (!hayError) return;
+    window.addEventListener(EVENTO_LISTO, recargar);
+    return () => window.removeEventListener(EVENTO_LISTO, recargar);
+  }, [hayError, recargar]);
+
   return { ...estado, recargar };
 }
