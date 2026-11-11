@@ -1,0 +1,33 @@
+# Edge proxy: the only process listening on the public port ($PORT, set by Render).
+# It routes by path to the two HTTP microservices; the gRPC engine is never exposed.
+{
+	admin off
+	auto_https off
+	persist_config off
+	servers {
+		trusted_proxies static private_ranges
+	}
+}
+
+:{$PORT:10000} {
+	# WebSocket hub: Caddy upgrades the connection transparently
+	@realtime path /ws /ws/* /realtime/*
+	handle @realtime {
+		reverse_proxy 127.0.0.1:8002
+	}
+
+	# Internal endpoints are loopback-only: nobody outside the container may publish hub events
+	@internal path /internal/*
+	handle @internal {
+		respond "Not found" 404
+	}
+
+	handle {
+		# flush_interval -1 streams Server-Sent Events (training progress) without buffering
+		reverse_proxy 127.0.0.1:8001 {
+			flush_interval -1
+		}
+	}
+
+	header -Server
+}

@@ -1,0 +1,36 @@
+# Local stack identical to production: PostgreSQL + the single application container.
+#
+#   docker compose up --build        → http://localhost:10000/docs  ·  ws://localhost:10000/ws
+#
+# The frontend (repository volcanoFront) points NEXT_PUBLIC_API_URL at http://localhost:10000.
+services:
+  db:
+    image: postgres:16.6-alpine
+    environment:
+      POSTGRES_USER: volcano
+      POSTGRES_PASSWORD: volcano
+      POSTGRES_DB: volcano
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U volcano"]
+      interval: 3s
+      retries: 20
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "10000:10000"
+    environment:
+      DATABASE_URL: postgresql://volcano:volcano@db:5432/volcano
+      JWT_SECRET: local-jwt-secret-with-more-than-32-bytes
+      CRON_SECRET: local-cron-secret
+      INTERNAL_TOKEN: local-internal-token
+      CORS_ORIGINS: http://localhost:3000
+      SEED_REAL_WEATHER: "false"
+
+volumes:
+  pgdata:
