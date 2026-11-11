@@ -1,0 +1,80 @@
+# Automatic daily update: weather, searches, (SIVIGILA), predictions and alerts.
+# Repository secrets (Settings → Secrets and variables → Actions):
+#   API_URL      public URL of the backend on Render, without a trailing "/"
+#   CRON_SECRET  the same value as the backend's CRON_SECRET variable
+name: Daily update
+
+on:
+  schedule:
+    - cron: "0 11 * * *" # 11:00 UTC = 6:00 a.m. in Colombia
+  workflow_dispatch:
+    inputs:
+      sivigila:
+        description: "Download SIVIGILA (auto = Mondays only)"
+        type: choice
+        options: [auto, "yes", "no"]
+        default: auto
+      retrain:
+        description: "Retrain the model (auto = Mondays)"
+        type: choice
+        options: [auto, "yes", "no"]
+        default: auto
+
+concurrency:
+  group: daily-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # Without the secrets the job is skipped with a warning (it does not fail), so the repository
+      # does not pile up red runs while the cron job is not configured yet.
+      - name: Check secrets
+        id: secrets
+        env:
+          API_URL: ${{ secrets.API_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$API_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "::warning::API_URL and/or CRON_SECRET are missing: the update is skipped"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Render's free plan sleeps the service after 15 min without traffic: wake it up first
+      - name: Wake the backend up
+        if: steps.secrets.outputs.ready == 'true'
+        env:
+          API_URL: ${{ secrets.API_URL }}
+        run: |
+          for i in $(seq 1 12); do
+            if curl -fsS --max-time 20 "$API_URL/health"; then echo; echo "Backend ready"; exit 0; fi
+            echo "Attempt $i: the backend is not answering yet, waiting 15 s…"
+            sleep 15
+          done
+          echo "::error::The backend did not answer within 3 minutes"
+          exit 1
+
+      - name: Run the update
+        if: steps.secrets.outputs.ready == 'true'
+        env:
+          API_URL: ${{ secrets.API_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SIVIGILA: ${{ inputs.sivigila || 'auto' }}
+          RETRAIN: ${{ inputs.retrain || 'auto' }}
+        run: |
+          code=$(curl -sS --max-time 600 -o response.json -w "%{http_code}" -X POST \
+            -H "X-Cron-Secret: $CRON_SECRET" \
+            "$API_URL/api/v1/jobs/daily-update?sivigila=$SIVIGILA&retrain=$RETRAIN")
+          echo "HTTP $code"
+          jq . response.json || cat response.json
+          {
+            echo "## Daily update"
+            echo "| Step | Status | Seconds |"
+            echo "|---|---|---|"
+            jq -r '.steps[]? | "| \(.step) | \(if .ok then "✅" else "❌ \(.error)" end) | \(.seconds) |"' response.json
+          } >> "$GITHUB_STEP_SUMMARY"
+          [ "$code" = "200" ]

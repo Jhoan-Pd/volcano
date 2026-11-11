@@ -1,0 +1,242 @@
+// Contract of the prediction engine (Python gRPC server).
+//
+// The browser never speaks gRPC: browsers do not expose HTTP/2 trailers and Render publishes a
+// single HTTP port. Two services inside the container are the engine's clients and translate each
+// RPC type into the matching web transport:
+//
+//   RPC type           Method                          Client     Transport to the browser
+//   ────────────────── ─────────────────────────────── ────────── ──────────────────────────────
+//   Unary              GetStatus, Predict,             gateway    GET/POST → JSON
+//                      RefreshForecasts, StartTraining,
+//                      GetTrainingStatus
+//   Server streaming   Train                           gateway    SSE (text/event-stream)
+//                      WatchAlerts                     realtime   WebSocket fan-out (one upstream
+//                                                                 stream for every browser)
+//   Client streaming   UploadPharmacyReports           gateway    POST → stream of rows
+//   Bidirectional      SimulateScenarios               realtime   WebSocket ↔ bidirectional stream
+//
+// Generate the code: scripts/generate_grpc.sh
+syntax = "proto3";
+
+package volcano.engine.v1;
+
+service PredictionEngine {
+  // Unary: version, models in memory and whether a training run is in progress.
+  rpc GetStatus (Empty) returns (EngineStatus);
+
+  // Unary: forecast of the next 4 weeks computed right now with the in-memory model.
+  rpc Predict (ForecastRequest) returns (Forecast);
+
+  // Unary: regenerate the stored predictions with the active models and re-evaluate the alerts
+  // (the daily job calls it on the days it does not retrain).
+  rpc RefreshForecasts (RefreshRequest) returns (RefreshResult);
+
+  // Unary: start training in the background and return at once (ALREADY_EXISTS if one is running).
+  rpc StartTraining (TrainingRequest) returns (TrainingStatus);
+
+  // Unary: status of the latest training run.
+  rpc GetTrainingStatus (Empty) returns (TrainingStatus);
+
+  // Server streaming: train and report every step (candidates, winner, predictions, alerts).
+  // The stream ends when training finishes.
+  rpc Train (TrainingRequest) returns (stream TrainingProgress);
+
+  // Server streaming: first the active alerts and a SYNCED marker, then every change (created,
+  // updated, closed) while the client stays connected.
+  rpc WatchAlerts (AlertFilter) returns (stream AlertEvent);
+
+  // Client streaming: a pharmacy sends its history row by row; the server validates each row as it
+  // arrives, groups them by week and answers with a summary at the end.
+  rpc UploadPharmacyReports (stream PharmacyReportRow) returns (UploadSummary);
+
+  // Bidirectional streaming: the client sends "what if…?" scenarios (more rain, more searches…) and
+  // gets the modified forecast back for each one as soon as it is computed.
+  rpc SimulateScenarios (stream Scenario) returns (stream ScenarioResult);
+}
+
+enum RiskLevel {
+  RISK_LEVEL_UNSPECIFIED = 0;
+  RISK_LEVEL_GREEN = 1;
+  RISK_LEVEL_YELLOW = 2;
+  RISK_LEVEL_ORANGE = 3;
+  RISK_LEVEL_RED = 4;
+}
+
+message Empty {}
+
+message EngineStatus {
+  string version = 1;
+  int32 models_in_memory = 2;
+  bool training = 3;
+  double uptime_s = 4;
+  int64 rpcs_served = 5;
+}
+
+// ── Unary: Predict ──────────────────────────────────────────────────────────
+message ForecastRequest {
+  int32 municipality_id = 1;
+  int32 disease_id = 2;
+}
+
+message Thresholds {
+  double yellow = 1;
+  double orange = 2;
+  double red = 3;
+}
+
+message ForecastPoint {
+  int32 year = 1;
+  int32 epi_week = 2;
+  string label = 3;               // "2026-S14"
+  int32 horizon = 4;              // 1 to 4 weeks ahead
+  double expected_cases = 5;
+  double lower_bound = 6;         // 80 % interval
+  double upper_bound = 7;
+  RiskLevel level = 8;
+  optional Thresholds thresholds = 9;
+}
+
+message Forecast {
+  int32 municipality_id = 1;
+  string municipality = 2;
+  int32 disease_id = 3;
+  string disease = 4;
+  string algorithm = 5;
+  int32 model_id = 6;
+  string base_week = 7;           // last week with data
+  RiskLevel max_level = 8;
+  repeated ForecastPoint points = 9;
+  double duration_ms = 10;        // computation time inside the server
+  bool from_cache = 11;           // the model was already in memory
+}
+
+// ── Unary: RefreshForecasts ─────────────────────────────────────────────────
+message RefreshRequest {
+  bool evaluate_alerts = 1;
+  bool send_email = 2;
+}
+
+message RefreshResult {
+  int32 predictions = 1;
+  int32 alerts_new = 2;
+  int32 alerts_updated = 3;
+  int32 alerts_closed = 4;
+  int32 alerts_active = 5;
+  int32 emails_sent = 6;
+}
+
+// ── Training ────────────────────────────────────────────────────────────────
+message TrainingRequest {
+  optional int32 disease_id = 1;  // empty = every disease
+}
+
+message TrainingStatus {
+  bool running = 1;
+  string started_at = 2;          // ISO 8601, UTC; empty if never
+  string finished_at = 3;
+  string message = 4;
+  repeated string errors = 5;
+}
+
+message TrainingProgress {
+  enum Stage {
+    STAGE_UNSPECIFIED = 0;
+    STAGE_STARTED = 1;
+    STAGE_DATASET = 2;
+    STAGE_CANDIDATE = 3;
+    STAGE_MODEL_READY = 4;
+    STAGE_PREDICTIONS = 5;
+    STAGE_ALERTS = 6;
+    STAGE_WARNING = 7;
+    STAGE_FINISHED = 8;
+    STAGE_FAILED = 9;
+  }
+  Stage stage = 1;
+  string message = 2;
+  double percent = 3;             // 0 to 100
+  string disease = 4;
+  string algorithm = 5;
+  optional double mae = 6;
+  optional double baseline_mae = 7;
+}
+
+// ── Server streaming: WatchAlerts ───────────────────────────────────────────
+message AlertFilter {
+  optional int32 municipality_id = 1;
+}
+
+message Alert {
+  int32 id = 1;
+  int32 municipality_id = 2;
+  string municipality = 3;
+  int32 disease_id = 4;
+  string disease = 5;
+  string week = 6;
+  RiskLevel level = 7;
+  string origin = 8;              // OBSERVED | PREDICTED
+  string message = 9;
+}
+
+message AlertEvent {
+  enum Kind {
+    KIND_UNSPECIFIED = 0;
+    KIND_ACTIVE = 1;              // already active when the client connected
+    KIND_CREATED = 2;
+    KIND_UPDATED = 3;
+    KIND_CLOSED = 4;
+    KIND_SYNCED = 5;              // end of the initial replay of active alerts (carries no alert)
+  }
+  Kind kind = 1;
+  Alert alert = 2;
+  string at = 3;                  // ISO 8601, UTC
+}
+
+// ── Client streaming: UploadPharmacyReports ─────────────────────────────────
+message PharmacyReportRow {
+  int32 row = 1;                  // line number in the CSV (to report errors)
+  optional int32 pharmacy_id = 2; // ADMIN only; a pharmacy reports for its own
+  int32 year = 3;
+  int32 epi_week = 4;
+  string category = 5;
+  int32 units = 6;
+}
+
+message RowError {
+  int32 row = 1;
+  string message = 2;
+}
+
+message UploadSummary {
+  int32 rows_received = 1;
+  int32 rows_rejected = 2;
+  int32 weeks_created = 3;
+  int32 weeks_updated = 4;
+  int32 weeks_rejected = 5;
+  repeated RowError errors = 6;
+}
+
+// ── Bidirectional: SimulateScenarios ────────────────────────────────────────
+message Scenario {
+  string id = 1;                  // chosen by the client; echoed in the result
+  int32 municipality_id = 2;
+  int32 disease_id = 3;
+  double temperature_delta_c = 4; // −5 to +5 °C
+  double rain_change_pct = 5;     // −100 to +200 %
+  double search_change_pct = 6;
+  double pharmacy_change_pct = 7;
+  bool ash_fall = 8;              // ash fall this week
+}
+
+message ScenarioResult {
+  string id = 1;
+  int32 municipality_id = 2;
+  int32 disease_id = 3;
+  repeated ForecastPoint baseline = 4;     // unchanged
+  repeated ForecastPoint scenario = 5;     // with the changes
+  RiskLevel max_level = 6;
+  double change_pct = 7;          // total scenario cases versus the baseline
+  string summary = 8;
+  double duration_ms = 9;
+  // An invalid scenario does not break the stream: it comes back with this field and the rest empty.
+  string error = 10;
+}

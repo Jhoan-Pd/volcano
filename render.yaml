@@ -1,19 +1,19 @@
-# Blueprint de Render (Infrastructure as Code). Render → New → Blueprint → elige este repo.
-# Las variables marcadas con sync:false se piden en el panel al crear el servicio.
+# Render Blueprint (infrastructure as code). Render → New → Blueprint → pick this repository.
+# Variables marked sync:false are asked for in the dashboard when the service is created.
+#
+# One Docker web service runs the three microservices (gateway, engine, realtime) behind the Caddy
+# edge proxy; see Dockerfile and deploy/. Variables renamed in v3 still accept their old Spanish
+# names (MOTOR_GRPC_TOKEN, ALERTAS_EMAIL_DESTINO…), so an existing service keeps working.
 services:
   - type: web
     name: predictor-brotes-api
-    runtime: python
+    runtime: docker
     plan: free
     region: oregon
-    rootDir: backend
-    buildCommand: pip install -r requirements.txt
-    # start.sh: migraciones + seed, motor gRPC en 127.0.0.1:50051 y uvicorn en $PORT (mismo servicio)
-    startCommand: sh start.sh
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
     healthCheckPath: /health
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.12.8
       - key: ENV
         value: production
       - key: DATABASE_URL
@@ -22,10 +22,12 @@ services:
         generateValue: true
       - key: CRON_SECRET
         generateValue: true
-      # Token compartido entre la API y el motor gRPC (ambos procesos leen la misma variable)
-      - key: MOTOR_GRPC_TOKEN
+      # Shared by the three services to authenticate each other inside the container
+      - key: INTERNAL_TOKEN
         generateValue: true
       - key: CORS_ORIGINS
+        sync: false
+      - key: CORS_ORIGIN_REGEX
         sync: false
       - key: ADMIN_EMAIL
         value: admin@predictor.co
@@ -33,14 +35,19 @@ services:
         sync: false
       - key: DEMO_PASSWORD
         sync: false
-      - key: SEED_CLIMA_REAL
+      - key: SEED_REAL_WEATHER
         value: "true"
       - key: FRONTEND_URL
         sync: false
-      # Alertas por correo (opcional): API key de https://resend.com y correos que reciben todas las alertas
+      - key: REVALIDATE_SECRET
+        sync: false
+      # E-mail alerts (optional): API key from https://resend.com and the addresses that get every alert
       - key: RESEND_API_KEY
         sync: false
-      - key: ALERTAS_EMAIL_DESTINO
+      - key: ALERT_EMAIL_RECIPIENTS
         sync: false
-      - key: ENTRENAR_AL_INICIO
+      - key: TRAIN_ON_STARTUP
         value: "true"
+      # Fewer engine threads keep the free plan's 512 MB comfortable
+      - key: ENGINE_GRPC_THREADS
+        value: "16"

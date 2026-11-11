@@ -1,5 +1,0 @@
--r requirements.txt
-pytest==9.1.1
-ruff==0.17.1
-# Regenerar el código gRPC: scripts/generar_grpc.sh
-grpcio-tools==1.84.0

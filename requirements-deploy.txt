@@ -1,0 +1,2 @@
+# Only needed inside the container (process manager for the four processes)
+supervisor==4.3.0
