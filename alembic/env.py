@@ -1,11 +1,11 @@
-"""Entorno de Alembic: toma la URL de app.core.config y el metadata de los modelos."""
+"""Alembic environment: the URL comes from volcano.shared.config and the metadata from the models."""
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-from app.core.config import settings
-from app.models import Base  # noqa: F401  (registra todas las tablas)
+from alembic import context
+from volcano.models import Base
+from volcano.shared.config import settings
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL.replace("%", "%%"))
@@ -22,7 +22,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
-        render_as_batch=settings.es_sqlite,
+        render_as_batch=settings.is_sqlite,
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -38,7 +38,7 @@ def run_migrations_online() -> None:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
-            render_as_batch=settings.es_sqlite,  # SQLite necesita "batch" para ALTER TABLE
+            render_as_batch=settings.is_sqlite,  # SQLite needs "batch" mode for ALTER TABLE
             compare_type=True,
         )
         with context.begin_transaction():

@@ -1,24 +1,25 @@
-"""mapeos de fuentes por enfermedad y autor del reporte de farmacia
+"""Source mappings per disease and author of the pharmacy report
 
-- enfermedades.codigos_sivigila: códigos de evento INS que alimentan casos_oficiales.
-- enfermedades.categorias_farmacia: categorías de venta que sirven de señal temprana.
-- reportes_farmacia.reportado_por_id: usuario que guardó o editó el reporte.
+- enfermedades.codigos_sivigila: INS event codes that feed casos_oficiales.
+- enfermedades.categorias_farmacia: sales categories used as an early signal.
+- reportes_farmacia.reportado_por_id: user who saved or edited the report.
 
 Revision ID: 0002
 Revises: 0001
 Create Date: 2026-10-08 09:00:00
 """
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision: str = "0002"
-down_revision: Union[str, None] = "0001"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "0001"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
-# Valores para las enfermedades que ya existan (bases desplegadas con la Fase 1)
+# Values for the diseases that already exist (databases deployed in phase 1)
 MAPEOS = {
     "IRA": (None, "ANTIGRIPALES,ANTIPIRETICOS"),
     "EDA": (None, "SALES_REHIDRATACION"),
