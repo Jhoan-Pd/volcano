@@ -51,7 +51,11 @@ jobs:
         run: docker build -t volcano .
       - name: Start the container
         run: |
+          # Like a hardened host (Render's sandbox): no Linux capabilities and no privilege escalation.
+          # A binary that needs one — the stock Caddy carries a file capability — fails to start here
+          # instead of on the first production deploy.
           docker run -d --name volcano --network host \
+            --cap-drop ALL --security-opt no-new-privileges:true \
             -e PORT=10000 \
             -e DATABASE_URL=postgresql://volcano:volcano@127.0.0.1:5432/volcano \
             -e JWT_SECRET=ci-jwt-secret-with-more-than-32-bytes \

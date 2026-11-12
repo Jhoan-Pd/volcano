@@ -12,6 +12,11 @@
 # changing addresses in the environment.
 
 FROM caddy:2.10.2-alpine AS caddy
+# The official binary carries the file capability cap_net_bind_service (to bind ports below 1024).
+# A sandbox that removes that capability from the container refuses to execute such a file at all
+# ("operation not permitted"). The edge listens on $PORT (10000), so the capability is not needed:
+# a plain copy drops it and the binary runs anywhere.
+RUN cp /usr/bin/caddy /caddy
 
 FROM python:3.12.8-slim AS runtime
 
@@ -29,7 +34,9 @@ WORKDIR /app
 COPY requirements.txt requirements-deploy.txt ./
 RUN pip install -r requirements.txt -r requirements-deploy.txt
 
-COPY --from=caddy /usr/bin/caddy /usr/local/bin/caddy
+COPY --from=caddy /caddy /usr/local/bin/caddy
+# Fail the build, not the deploy, if the binary ever carries a file capability again
+RUN python -c "import os; caps = [x for x in os.listxattr('/usr/local/bin/caddy') if 'capability' in x]; assert not caps, caps"
 
 COPY alembic.ini ./
 COPY alembic ./alembic
