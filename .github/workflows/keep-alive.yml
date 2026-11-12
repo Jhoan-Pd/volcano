@@ -1,29 +1,32 @@
-# Keeps the Render free-plan backend awake: it sleeps after 15 min without inbound traffic and takes
-# about a minute to wake up (the first visit looked "frozen").
+# Wake-up call for the Render free-plan backend.
 #
-# Render gives 750 free hours per month per workspace: enough for ONE service awake all month.
-# The ping goes to /health, which also queries the database.
-# GitHub may delay cron jobs by a few minutes, so it is scheduled every 10 minutes.
+# The service keeps ITSELF awake (volcano/realtime/keep_awake.py). What it cannot do is wake up once
+# it is asleep — after a deploy, a restart, or the night hours configured in KEEP_AWAKE_HOURS — so
+# this workflow knocks on the door a few times a day. It is a backup, not the keep-alive: GitHub
+# runs scheduled workflows on a best-effort basis, often hours late.
+#
+# The ping goes to /live, which does not query the database.
 name: Keep alive
 
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "*/30 * * * *"
   workflow_dispatch:
 
 jobs:
   ping:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 6
     steps:
-      - name: Ping the backend
+      - name: Wake the backend up
         env:
           # Optional secret; without it the public URL of the deployment is used
           API_URL: ${{ secrets.API_URL || 'https://predictor-brotes-api.onrender.com' }}
         run: |
-          for i in 1 2 3 4 5 6; do
-            if curl -fsS --max-time 30 "$API_URL/health"; then echo; echo "Backend awake"; exit 0; fi
-            echo "Attempt $i: waking the backend up, waiting 20 s"
-            sleep 20
+          for attempt in 1 2 3 4 5 6 7 8; do
+            if curl -fsS --max-time 20 "$API_URL/live"; then echo; echo "Backend awake (attempt $attempt)"; exit 0; fi
+            echo "Attempt $attempt: the backend is not answering yet, waiting 15 s"
+            sleep 15
           done
-          echo "::warning::The backend did not answer within 3 minutes"
+          echo "::error::The backend did not answer within about 4 minutes"
+          exit 1

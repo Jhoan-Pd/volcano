@@ -51,7 +51,7 @@ jobs:
           API_URL: ${{ secrets.API_URL }}
         run: |
           for i in $(seq 1 12); do
-            if curl -fsS --max-time 20 "$API_URL/health"; then echo; echo "Backend ready"; exit 0; fi
+            if curl -fsS --max-time 20 "$API_URL/live"; then echo; echo "Backend ready"; exit 0; fi
             echo "Attempt $i: the backend is not answering yet, waiting 15 s…"
             sleep 15
           done

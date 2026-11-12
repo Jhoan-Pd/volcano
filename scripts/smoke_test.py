@@ -26,27 +26,28 @@ def wait_for(url: str, limit_s: float) -> None:
     deadline = time.monotonic() + limit_s
     while time.monotonic() < deadline:
         try:
-            if httpx.get(f"{url}/health", timeout=5).status_code == 200:
+            if httpx.get(f"{url}/live", timeout=5).status_code == 200:
                 return
         except httpx.HTTPError:
             pass
         time.sleep(2)
-    check(False, f"{url}/health answered within {limit_s:.0f} s")
+    check(False, f"{url}/live answered within {limit_s:.0f} s")
 
 
 def rest(api: str, model_wait_s: float) -> tuple[int, int]:
     print("REST · gateway")
     deadline = time.monotonic() + model_wait_s
-    while True:  # right after a deploy the engine may still be starting and the hub reconnecting
+    check(httpx.get(f"{api}/health", timeout=30).json().get("database") == "ok", "gateway reaches the database")
+    while True:  # right after a deploy the engine and the hub may still be starting
         services = httpx.get(f"{api}/health/services", timeout=10).json()
-        ready = services["engine"]["available"] and services["realtime"].get("alerts_upstream") == "connected"
+        ready = services["engine"]["available"] and services["realtime"]["available"]
         if ready or time.monotonic() > deadline:
             break
         time.sleep(2)
-    engine = services["engine"]
+    engine, hub = services["engine"], services["realtime"]
     check(engine["available"], f"engine reachable over gRPC (latency {engine['latency_ms']} ms)")
-    check(services["realtime"].get("alerts_upstream") == "connected",
-          f"realtime hub reachable and subscribed to the engine ({services['realtime'].get('connections')} sockets)")
+    check(hub["available"], f"realtime hub reachable ({hub.get('connections')} sockets, "
+                            f"alert upstream {hub.get('alerts_upstream')})")
     summary = httpx.get(f"{api}/api/v1/dashboard/summary", timeout=30).json()
     check(len(summary["risks"]) >= 1,
           f"dashboard summary for {summary['municipality']}, week {summary['reference_week']}")

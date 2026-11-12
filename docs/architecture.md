@@ -50,6 +50,9 @@ server → client   welcome · alerts.snapshot · alert {event} · simulation.re
 
 - **Fan-out instead of one stream per tab.** The hub keeps exactly one `WatchAlerts` stream to the engine
   and mirrors the active alerts, so a new subscriber gets a snapshot without touching the engine.
+- **Demand-driven upstream.** That one stream only exists while at least one browser is subscribed; it
+  closes a minute after the last one leaves. With nobody watching the engine does not poll the database,
+  so an idle deployment lets a serverless PostgreSQL scale to zero.
 - **Reconnection without gaps.** If the engine restarts, the relay reconnects with exponential back-off
   plus jitter. The engine replays the active alerts followed by a `SYNCED` marker; the relay diffs the
   replay against what it had and announces what was created or closed while it was disconnected.
@@ -60,6 +63,8 @@ server → client   welcome · alerts.snapshot · alert {event} · simulation.re
   `/internal/events` requires the internal token and is not routed by the edge proxy at all.
 - **Liveness.** An application-level `ping` every 25 s keeps idle sockets open through proxies and lets
   the browser notice a dead connection quickly.
+- **Keep-awake.** On hosts that sleep without inbound traffic, the hub requests the service's own public
+  `/live` at a fixed interval (see `docs/deployment.md`).
 
 System events (`data.updated`, `model.trained`) are published by the gateway's daily job and the engine's
 training runs, so open dashboards can refresh themselves.

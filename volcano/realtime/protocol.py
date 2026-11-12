@@ -11,14 +11,17 @@ Client → server
 
 Server → client
     {"type": "welcome", "client_id", "protocol", "heartbeat_s", "server_time"}
-    {"type": "alerts.snapshot", "alerts": [...], "upstream": "connected" | "reconnecting"}
+    {"type": "alerts.snapshot", "alerts": [...], "upstream": "connected"}
     {"type": "alert", "event": {"kind": "CREATED" | "UPDATED" | "CLOSED", "at", "alert": {...}}}
     {"type": "simulation.result", "result": {...}}
     {"type": "presence", "online": 3}
     {"type": "system", "event": "data.updated" | "model.trained" | …, "at", "detail"}
-    {"type": "upstream", "status": "connected" | "reconnecting"}
+    {"type": "upstream", "status": "connecting" | "connected" | "reconnecting"}
     {"type": "ping"} · {"type": "pong"}
     {"type": "error", "code", "message"}
+
+A subscriber always ends up with exactly one `alerts.snapshot`: at once when the hub is in sync with
+the engine, otherwise right after it (an `upstream` message says which case it is meanwhile).
 """
 from typing import Annotated, Any, Literal
 

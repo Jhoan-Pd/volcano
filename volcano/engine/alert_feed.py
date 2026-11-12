@@ -89,7 +89,8 @@ class AlertFeed:
         """Register the subscriber and return the alerts that are active right now."""
         sub = Subscription(municipality_id)
         with self._lock:
-            if self._snapshot is None:
+            # Nobody was listening, so nothing kept the snapshot current: read it again
+            if self._snapshot is None or not self._subscribers:
                 self._snapshot = self._read()
             initial = [event(Kind.KIND_ACTIVE, s) for s in self._snapshot.values() if sub.accepts(s)]
             self._subscribers.add(sub)
