@@ -91,7 +91,14 @@ def root():
     return {"app": settings.APP_NAME, "version": app.version, "docs": "/docs"}
 
 
-@app.get("/health", tags=["Health"], summary="Liveness and database check (used by Render)")
+@app.get("/live", tags=["Health"], summary="Liveness: the process answers (touches nothing else)")
+def live():
+    """What the platform's health check and the keep-awake ping call, every few seconds or minutes.
+    It must not query the database: a serverless PostgreSQL would never be allowed to scale to zero."""
+    return {"status": "ok"}
+
+
+@app.get("/health", tags=["Health"], summary="Readiness: the API can reach the database")
 def health():
     with db_engine.connect() as conn:
         conn.execute(text("SELECT 1"))

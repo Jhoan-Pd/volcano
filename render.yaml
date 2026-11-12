@@ -12,7 +12,9 @@ services:
     region: oregon
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    healthCheckPath: /health
+    # /live does not query the database: Render calls it every few seconds, and /health would keep a
+    # serverless PostgreSQL (Neon) awake around the clock and burn its free compute allowance.
+    healthCheckPath: /live
     envVars:
       - key: ENV
         value: production
@@ -48,6 +50,13 @@ services:
         sync: false
       - key: TRAIN_ON_STARTUP
         value: "true"
+      # The free plan sleeps after 15 min without inbound traffic. The service pings its own public
+      # URL (RENDER_EXTERNAL_URL, set by Render) to stay awake. Render's 750 free hours a month cover
+      # ONE service awake around the clock: with more free services, use e.g. "6-23" (local hours).
+      - key: KEEP_AWAKE
+        value: "true"
+      - key: KEEP_AWAKE_HOURS
+        value: "0-24"
       # Fewer engine threads keep the free plan's 512 MB comfortable
       - key: ENGINE_GRPC_THREADS
         value: "16"

@@ -1,7 +1,6 @@
 """Realtime hub: fan-out, slow consumers, the alert relay, and the WebSocket protocol end to end
 (WebSocket → hub → gRPC engine → test database)."""
 import asyncio
-import time
 
 import pytest
 from fastapi.testclient import TestClient
@@ -104,6 +103,118 @@ def test_relay_filters_by_municipality_and_tracks_changes():
     assert relay.snapshot() == []
 
 
+class FakeEngine:
+    """Stands in for the gRPC client: replays one alert, syncs and then stays silent."""
+    def __init__(self):
+        self.opened = self.closed = 0
+
+    async def watch_alerts(self):
+        self.opened += 1
+        try:
+            yield _Event({"kind": "ACTIVE", "at": "t", "alert": _alert(1)})
+            yield _Event({"kind": "SYNCED", "at": "t", "alert": {}})
+            await asyncio.Event().wait()
+        finally:
+            self.closed += 1
+
+
+class _Event(dict):
+    def model_dump(self):
+        return dict(self)
+
+
+def test_the_upstream_only_exists_while_someone_is_subscribed():
+    """An idle hub must not hold a stream to the engine: the engine would poll the database for nobody
+    and a serverless PostgreSQL could never scale to zero."""
+    async def run():
+        hub, engine = ConnectionHub(), FakeEngine()
+        relay = AlertRelay(hub, engine, idle_grace_s=0.01)
+        assert relay.status == "idle" and engine.opened == 0
+
+        early = _client()
+        hub.add(early)
+        relay.subscribe(early, None)
+        assert relay.status == "connecting"
+        await asyncio.sleep(0.01)  # the fake engine replays and syncs
+        assert relay.status == "connected" and engine.opened == 1
+        # Told to wait first, then exactly one snapshot — never the replay as "new alert" events
+        kinds = [m["type"] for m in _drain(early) if m["type"] != "presence"]
+        assert kinds == ["upstream", "upstream", "alerts.snapshot"]
+
+        late = _client()
+        hub.add(late)
+        relay.subscribe(late, None)  # the hub is in sync: the snapshot is immediate
+        assert [m["alerts"][0]["id"] for m in _drain(late) if m["type"] == "alerts.snapshot"] == [1]
+        assert engine.opened == 1  # still one stream for both browsers
+
+        relay.unsubscribe(early)
+        hub.remove(late)
+        relay.demand_changed()
+        await asyncio.sleep(0.05)  # grace period
+        assert relay.status == "idle" and engine.closed == 1 and relay.snapshot() == []
+
+        relay.subscribe(early, None)  # somebody comes back: a fresh stream
+        await asyncio.sleep(0.01)
+        assert relay.status == "connected" and engine.opened == 2
+        await relay.stop()
+    asyncio.run(run())
+
+
+def test_a_reload_within_the_grace_period_keeps_the_upstream():
+    async def run():
+        hub, engine = ConnectionHub(), FakeEngine()
+        relay = AlertRelay(hub, engine, idle_grace_s=0.05)
+        first = _client()
+        hub.add(first)
+        relay.subscribe(first, None)
+        await asyncio.sleep(0.01)
+        hub.remove(first)
+        relay.demand_changed()
+        second = _client()
+        hub.add(second)
+        relay.subscribe(second, None)
+        await asyncio.sleep(0.1)
+        assert relay.status == "connected" and engine.opened == 1 and engine.closed == 0
+        await relay.stop()
+    asyncio.run(run())
+
+
+def test_keep_awake_pings_the_liveness_endpoint_only_during_its_hours():
+    from datetime import UTC, datetime
+
+    import httpx
+
+    from volcano.realtime.keep_awake import keep_awake, parse_hours, within_hours
+
+    assert parse_hours("6-23") == (6, 23) and parse_hours("0-24") == (0, 24)
+    for bad in ("23-6", "6", "0-25", "a-b"):
+        with pytest.raises(ValueError):
+            parse_hours(bad)
+    noon_utc = datetime(2026, 11, 11, 12, tzinfo=UTC)  # 07:00 in Colombia
+    assert within_hours((6, 23), -5, noon_utc) and not within_hours((8, 23), -5, noon_utc)
+    assert not within_hours((6, 23), -5, datetime(2026, 11, 11, 5, tzinfo=UTC))  # midnight in Colombia
+
+    async def run(hours):
+        paths = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            paths.append(request.url.path)
+            return httpx.Response(500 if len(paths) == 1 else 200)  # a failed ping must not stop the loop
+
+        task = asyncio.create_task(keep_awake("https://api.example/", 0.01, hours, 0, httpx.MockTransport(handler)))
+        await asyncio.sleep(0.08)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        return paths
+
+    always = asyncio.run(run((0, 24)))
+    assert len(always) >= 2 and set(always) == {"/live"}
+    hour = datetime.now(UTC).hour
+    asleep = (hour + 1, hour + 2) if hour < 22 else (0, 1)
+    assert asyncio.run(run(asleep)) == []
+
+
 def test_origin_check():
     assert realtime.origin_allowed(None)
     assert realtime.origin_allowed(settings.cors_origins[0])
@@ -115,9 +226,6 @@ def test_origin_check():
 def hub_client(grpc_engine, monkeypatch):
     monkeypatch.setattr(realtime, "engine", lambda: EngineClient(f"127.0.0.1:{grpc_engine.port}", ENGINE_TOKEN))
     with TestClient(realtime.app) as c:
-        deadline = time.monotonic() + 10
-        while c.get("/realtime/health").json()["alerts_upstream"] != "connected" and time.monotonic() < deadline:
-            time.sleep(0.1)
         yield c
 
 
@@ -131,7 +239,8 @@ def _receive_until(ws, kind: str, limit: int = 50) -> dict:
 
 def test_websocket_protocol_end_to_end(hub_client, db, trained_ira):
     pasto = db.query(Municipality).filter_by(divipola_code="52001").one().id
-    assert hub_client.get("/realtime/health").json()["alerts_upstream"] == "connected"
+    # Nobody is subscribed yet, so the hub holds no stream to the engine (and the engine polls nothing)
+    assert hub_client.get("/realtime/health").json()["alerts_upstream"] == "idle"
     with hub_client.websocket_connect("/ws") as ws:
         welcome = ws.receive_json()
         assert welcome["type"] == "welcome" and welcome["protocol"] == 1 and welcome["client_id"]
@@ -140,8 +249,9 @@ def test_websocket_protocol_end_to_end(hub_client, db, trained_ira):
         assert _receive_until(ws, "pong") == {"type": "pong"}
 
         ws.send_json({"type": "subscribe", "channel": "alerts", "municipality_id": pasto})
-        snapshot = _receive_until(ws, "alerts.snapshot")
+        snapshot = _receive_until(ws, "alerts.snapshot")  # arrives once the engine finished its replay
         assert snapshot["upstream"] == "connected" and isinstance(snapshot["alerts"], list)
+        assert hub_client.get("/realtime/health").json()["alerts_upstream"] == "connected"
 
         ws.send_json({"type": "simulate", "scenario": {"id": "s1", "municipality_id": pasto,
                                                         "disease_id": trained_ira, "rain_change_pct": 80}})

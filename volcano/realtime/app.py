@@ -4,12 +4,14 @@
 
 Endpoints (the edge proxy routes `/ws` and `/realtime/*` here):
     WS   /ws                  multiplexed socket: live alerts, scenario simulator, presence, system events
-    GET  /realtime/health     liveness + connections + upstream status
+    GET  /realtime/health     liveness + connections + upstream status (touches nothing else)
     POST /internal/events     gateway/engine → hub (shared token; only reachable on loopback)
 
 The hub never touches the database: alerts come from the engine's `WatchAlerts` stream (one upstream
-for every browser) and simulations from `SimulateScenarios`. Its import graph is deliberately small
-(no pandas, no scikit-learn) so the process costs a few tens of MB in the shared container.
+for every browser, open only while someone is subscribed) and simulations from `SimulateScenarios`.
+Its import graph is deliberately small (no pandas, no scikit-learn) so the process costs a few tens
+of MB in the shared container. As the one service that is pure asyncio it also hosts the keep-awake
+loop of free-plan deployments (see keep_awake.py).
 """
 import asyncio
 import contextlib
@@ -27,6 +29,7 @@ from volcano import __version__
 from volcano.notifications.realtime import INTERNAL_HEADER
 from volcano.realtime.alert_relay import AlertRelay
 from volcano.realtime.hub import Client, ConnectionHub
+from volcano.realtime.keep_awake import keep_awake, parse_hours
 from volcano.realtime.protocol import (
     PROTOCOL_VERSION,
     Ping,
@@ -67,11 +70,16 @@ state = _State()
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     configure_logging("realtime")
-    state.relay = AlertRelay(hub, engine())
-    state.relay.start()
-    heartbeat = asyncio.create_task(_heartbeat(), name="heartbeat")
+    state.relay = AlertRelay(hub, engine())  # its upstream opens with the first subscriber
+    tasks = [asyncio.create_task(_heartbeat(), name="heartbeat")]
+    if settings.KEEP_AWAKE and settings.KEEP_AWAKE_URL:
+        tasks.append(asyncio.create_task(
+            keep_awake(settings.KEEP_AWAKE_URL, settings.KEEP_AWAKE_INTERVAL_S,
+                       parse_hours(settings.KEEP_AWAKE_HOURS), settings.LOCAL_UTC_OFFSET_HOURS),
+            name="keep-awake"))
     yield
-    heartbeat.cancel()
+    for task in tasks:
+        task.cancel()
     await state.relay.stop()
     await engine().close()
 
@@ -125,11 +133,9 @@ async def _handle(client: Client, simulation: SimulationSession, raw: str) -> No
         return
     match msg:
         case Subscribe(municipality_id=municipality_id):
-            client.alerts, client.alerts_municipality_id = True, municipality_id
-            client.send(message("alerts.snapshot", alerts=state.relay.snapshot(municipality_id),
-                                upstream=state.relay.status))
+            state.relay.subscribe(client, municipality_id)
         case Unsubscribe():
-            client.alerts = False
+            state.relay.unsubscribe(client)
         case Simulate(scenario=scenario):
             await simulation.submit(scenario)
         case Ping():
@@ -158,6 +164,7 @@ async def websocket_endpoint(websocket: WebSocket):
         pass
     finally:
         hub.remove(client)
+        state.relay.demand_changed()
         await simulation.close()
         if not client.closing:
             client.closing = True

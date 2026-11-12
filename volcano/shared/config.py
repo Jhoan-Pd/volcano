@@ -82,6 +82,14 @@ class Settings(BaseSettings):
     REALTIME_MAX_CONNECTIONS: int = 200
     REALTIME_HEARTBEAT_S: float = 25.0
 
+    # Keep-awake for free hosting plans that sleep without inbound traffic: the realtime service
+    # requests its own public URL (Render exposes it as RENDER_EXTERNAL_URL). Off when no URL is known.
+    KEEP_AWAKE: bool = True
+    KEEP_AWAKE_URL: str | None = Field(None, validation_alias=_env("KEEP_AWAKE_URL", "RENDER_EXTERNAL_URL"))
+    KEEP_AWAKE_INTERVAL_S: float = 600.0  # must stay under the platform's idle limit (15 min on Render)
+    KEEP_AWAKE_HOURS: str = "0-24"  # local hours "start-end"; e.g. "6-23" lets the service sleep at night
+    LOCAL_UTC_OFFSET_HOURS: int = -5  # Colombia (no daylight saving time)
+
     # Google Trends (pytrends is unofficial and may be blocked; there is a DB cache and CSV fallback)
     TRENDS_ENABLED: bool = Field(True, validation_alias=_env("TRENDS_ENABLED", "TRENDS_HABILITADO"))
     TRENDS_REGION: str = "CO-NAR"

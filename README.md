@@ -115,7 +115,7 @@ passwords come from `ADMIN_PASSWORD` and `DEMO_PASSWORD`.
 | Catalogues | `/municipalities` · `/diseases` · `/pharmacies` · `/volcanic-events` · `/users` |
 | Reports | `/reports/cases.csv` · `/predictions.csv` · `/alerts.csv` · `/summary.pdf` |
 | Jobs | `POST /jobs/daily-update` (header `X-Cron-Secret`) |
-| Health | `/health` (liveness + database) · `/health/services` (the three microservices) |
+| Health | `/live` (liveness, no database) · `/health` (readiness: database) · `/health/services` (the three microservices) |
 | Realtime | `WS /ws` · `GET /realtime/health` |
 
 Errors always have the same shape: `{"error": {"code": "NOT_FOUND", "message": "…", "details": …}}` —

@@ -30,6 +30,7 @@ class Client:
     id: str = field(default_factory=lambda: f"c{next(_ids)}")
     alerts: bool = False                   # subscribed to the alert feed
     alerts_municipality_id: int | None = None
+    awaiting_snapshot: bool = False        # subscribed while the relay was not in sync yet
     outbox: asyncio.Queue = field(default_factory=lambda: asyncio.Queue(maxsize=OUTBOUND_QUEUE_SIZE))
     closing: bool = False
 
@@ -71,6 +72,9 @@ class ConnectionHub:
 
     def _announce_presence(self) -> None:
         self.broadcast(message("presence", online=len(self._clients)))
+
+    def matching(self, to: Callable[[Client], bool]) -> list[Client]:
+        return [c for c in self._clients if to(c)]
 
     def broadcast(self, payload: dict[str, Any], to: Callable[[Client], bool] = lambda _: True) -> int:
         """Queue `payload` for every matching client; returns how many got it."""
